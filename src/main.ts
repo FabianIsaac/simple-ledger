@@ -2,7 +2,8 @@ import { Notice, Plugin, TFile } from 'obsidian';
 import { DEFAULT_SETTINGS, VIEW_TYPE_LEDGER, VIEW_TYPE_LEDGER_MAIN, VIEW_TYPE_RECURRING, VIEW_TYPE_QUICK_ADD } from './constants';
 import { PluginSettings, Transaction, AddTransactionData, RecurringTransaction } from './types';
 import { LedgerParser } from './parser/LedgerParser';
-import { fmtAmount, todayStr } from './utils/formatting';
+import { fmtAmount, fmtAmountRaw, todayStr } from './utils/formatting';
+import { FREQUENCY_LABELS } from './utils/recurring';
 import { LedgerSidebarView } from './views/LedgerSidebarView';
 import { LedgerMainView } from './views/LedgerMainView';
 import { RecurringSidebarView } from './views/RecurringSidebarView';
@@ -194,8 +195,8 @@ export default class SimpleLedgerPlugin extends Plugin {
 	async addTransaction(data: AddTransactionData): Promise<void> {
 		const { date, payee, amount, toAccount, fromAccount, status } = data;
 		const settings = this.settings;
-		const amtFormatted = fmtAmount(amount, settings);
-		const negFormatted = fmtAmount(-amount, settings);
+		const amtFormatted = fmtAmountRaw(amount, settings);
+		const negFormatted = fmtAmountRaw(-amount, settings);
 
 		const txText = LedgerParser.formatTransaction(date, payee, [
 			{ account: toAccount, amount: amount, currency: '', amountFormatted: amtFormatted },
@@ -232,9 +233,9 @@ export default class SimpleLedgerPlugin extends Plugin {
 		const date = todayStr();
 
 		const postings = [
-			{ account: rec.toAccount, amount: capitalPortion, currency: '', amountFormatted: fmtAmount(capitalPortion, settings) },
-			{ account: interestAccount, amount: interestPortion, currency: '', amountFormatted: fmtAmount(interestPortion, settings) },
-			{ account: rec.fromAccount, amount: -(capitalPortion + interestPortion), currency: '', amountFormatted: fmtAmount(-(capitalPortion + interestPortion), settings) },
+			{ account: rec.toAccount, amount: capitalPortion, currency: '', amountFormatted: fmtAmountRaw(capitalPortion, settings) },
+			{ account: interestAccount, amount: interestPortion, currency: '', amountFormatted: fmtAmountRaw(interestPortion, settings) },
+			{ account: rec.fromAccount, amount: -(capitalPortion + interestPortion), currency: '', amountFormatted: fmtAmountRaw(-(capitalPortion + interestPortion), settings) },
 		];
 
 		const txText = LedgerParser.formatTransaction(date, rec.payee, postings, rec.status ?? '*');
@@ -250,6 +251,7 @@ export default class SimpleLedgerPlugin extends Plugin {
 		}
 
 		await this.loadTransactions();
+		await this.appendPaymentToNote(rec, date);
 		this._refreshViews();
 		new Notice(`Cuota registrada: ${rec.payee}`);
 	}
@@ -257,8 +259,8 @@ export default class SimpleLedgerPlugin extends Plugin {
 	async updateTransaction(oldTx: Transaction, newData: AddTransactionData): Promise<void> {
 		const { date, payee, amount, toAccount, fromAccount, status } = newData;
 		const settings = this.settings;
-		const amtFormatted = fmtAmount(amount, settings);
-		const negFormatted = fmtAmount(-amount, settings);
+		const amtFormatted = fmtAmountRaw(amount, settings);
+		const negFormatted = fmtAmountRaw(-amount, settings);
 
 		const newTxText = LedgerParser.formatTransaction(date, payee, [
 			{ account: toAccount, amount: amount, currency: '', amountFormatted: amtFormatted },
@@ -317,6 +319,90 @@ export default class SimpleLedgerPlugin extends Plugin {
 		await this.loadTransactions();
 		this._refreshViews();
 		new Notice(`Cuenta renombrada: ${oldName} → ${newName}`);
+	}
+
+	// ── Recurring notes ──────────────────────────────────────────────────────
+
+	private _sanitizeFileName(name: string): string {
+		return name.replace(/[/\\:*?"<>|#^[\]]/g, '-').replace(/\s+/g, ' ').trim();
+	}
+
+	getRecurringNotePath(rec: RecurringTransaction): string {
+		const folder = (this.settings.recurringNotesFolder || 'Finanzas/Recurrentes').replace(/\/$/, '');
+		return `${folder}/${this._sanitizeFileName(rec.payee)}.md`;
+	}
+
+	async createRecurringNote(rec: RecurringTransaction): Promise<void> {
+		const path = this.getRecurringNotePath(rec);
+		if (this.app.vault.getAbstractFileByPath(path)) return;
+
+		const folder = path.substring(0, path.lastIndexOf('/'));
+		if (!this.app.vault.getAbstractFileByPath(folder)) {
+			await this.app.vault.createFolder(folder);
+		}
+
+		const freq = FREQUENCY_LABELS[rec.frequency] ?? rec.frequency;
+		const dayLabel = rec.frequency === 'weekly'
+			? `día ${rec.dayOfWeek ?? 1} de la semana`
+			: rec.frequency === 'yearly'
+			? `mes ${rec.monthOfYear ?? 1}`
+			: `día ${rec.dayOfMonth ?? 1} del mes`;
+
+		let content = `# ${rec.payee}\n\n`;
+		content += `**Monto:** ${fmtAmount(rec.amount, this.settings)}\n`;
+		content += `**Frecuencia:** ${freq} (${dayLabel})\n`;
+		content += `**Desde:** ${rec.fromAccount}\n`;
+		content += `**Hacia:** ${rec.toAccount}\n`;
+		if (rec._isCreditPayment && rec._principalPortion && rec._interestPortion) {
+			content += `**Capital:** ${fmtAmount(rec._principalPortion, this.settings)} | `;
+			content += `**Interés:** ${fmtAmount(rec._interestPortion, this.settings)}\n`;
+		}
+		content += `\n---\n\n## Historial de pagos\n\n`;
+		if (rec._isCreditPayment) {
+			content += `| Fecha | Monto | Capital | Interés |\n`;
+			content += `|-------|-------|---------|--------|\n`;
+		} else {
+			content += `| Fecha | Monto |\n`;
+			content += `|-------|-------|\n`;
+		}
+
+		await this.app.vault.create(path, content);
+	}
+
+	async appendPaymentToNote(rec: RecurringTransaction, date: string): Promise<void> {
+		const path = this.getRecurringNotePath(rec);
+		const file = this.app.vault.getAbstractFileByPath(path);
+		if (!file || !(file instanceof TFile)) return;
+
+		const content = await this.app.vault.read(file);
+		let row: string;
+		if (rec._isCreditPayment && rec._principalPortion && rec._interestPortion) {
+			row = `| ${date} | ${fmtAmount(rec.amount, this.settings)} | ${fmtAmount(rec._principalPortion, this.settings)} | ${fmtAmount(rec._interestPortion, this.settings)} |`;
+		} else {
+			row = `| ${date} | ${fmtAmount(rec.amount, this.settings)} |`;
+		}
+		await this.app.vault.modify(file, content.trimEnd() + '\n' + row + '\n');
+	}
+
+	async registerRecurringPayment(rec: RecurringTransaction): Promise<void> {
+		const date = todayStr();
+		await this.addTransaction({
+			date,
+			payee: rec.payee,
+			amount: rec.amount,
+			toAccount: rec.toAccount,
+			fromAccount: rec.fromAccount,
+			status: rec.status ?? '*',
+		});
+		await this.appendPaymentToNote(rec, date);
+	}
+
+	async openRecurringNote(rec: RecurringTransaction): Promise<void> {
+		const path = this.getRecurringNotePath(rec);
+		if (!this.app.vault.getAbstractFileByPath(path)) {
+			await this.createRecurringNote(rec);
+		}
+		await this.app.workspace.openLinkText(path, '', false);
 	}
 
 	_refreshViews(): void {

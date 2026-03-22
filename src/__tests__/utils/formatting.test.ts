@@ -8,6 +8,8 @@ function makeSettings(overrides: Partial<PluginSettings> = {}): PluginSettings {
 		currencySymbol: '$',
 		currencyAfter: false,
 		decimals: 2,
+		thousandSeparator: '',
+		recurringNotesFolder: 'Finanzas/Recurrentes',
 		defaultAccounts: { expenses: [], income: [], assets: [], liabilities: [] },
 		archivedAccounts: [],
 		recurringTransactions: [],

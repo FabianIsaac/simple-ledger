@@ -11,6 +11,8 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	currencySymbol: '$',
 	currencyAfter: false,
 	decimals: 2,
+	thousandSeparator: '.',
+	recurringNotesFolder: 'Finanzas/Recurrentes',
 	defaultAccounts: {
 		expenses: [
 			'Gastos:Comida',

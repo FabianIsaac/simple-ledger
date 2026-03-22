@@ -6,6 +6,7 @@ interface Plugin {
 	settings: PluginSettings;
 	saveSettings(): Promise<void>;
 	transactions: import('../types').Transaction[];
+	createRecurringNote(rec: RecurringTransaction): Promise<void>;
 }
 
 export class AddRecurringModal extends Modal {
@@ -174,7 +175,7 @@ export class AddRecurringModal extends Modal {
 			text: this.isEditing ? 'Guardar cambios' : 'Crear recurrente',
 			cls: 'mod-cta sl-submit-btn',
 		});
-		saveBtn.addEventListener('click', (e) => {
+		saveBtn.addEventListener('click', async (e) => {
 			e.preventDefault();
 			if (!this.rec.payee.trim()) { new Notice('Escribe una descripcion'); return; }
 			if (!this.rec.amount || this.rec.amount === 0) { new Notice('Escribe un monto valido'); return; }
@@ -182,12 +183,16 @@ export class AddRecurringModal extends Modal {
 
 			const recs = this.plugin.settings.recurringTransactions;
 			const idx = recs.findIndex(r => r.id === this.rec.id);
+			const isNew = idx < 0;
 			if (idx >= 0) {
 				recs[idx] = this.rec;
 			} else {
 				recs.push(this.rec);
 			}
-			this.plugin.saveSettings();
+			await this.plugin.saveSettings();
+			if (isNew) {
+				await this.plugin.createRecurringNote(this.rec);
+			}
 			this.onSave();
 			this.close();
 			new Notice(this.isEditing ? 'Recurrente actualizada' : 'Recurrente creada');

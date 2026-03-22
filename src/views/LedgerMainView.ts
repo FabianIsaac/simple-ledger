@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf } from 'obsidian';
+import { ItemView, Notice, WorkspaceLeaf } from 'obsidian';
 import { VIEW_TYPE_LEDGER_MAIN } from '../constants';
 import { PluginSettings, Transaction, BalanceTree, AddTransactionData, RecurringTransaction } from '../types';
 import { LedgerParser } from '../parser/LedgerParser';
@@ -26,6 +26,9 @@ interface Plugin {
 	updateTransaction(oldTx: Transaction, newData: AddTransactionData): Promise<void>;
 	deleteTransaction(tx: Transaction): Promise<void>;
 	addCreditPayment(rec: RecurringTransaction): Promise<void>;
+	registerRecurringPayment(rec: RecurringTransaction): Promise<void>;
+	openRecurringNote(rec: RecurringTransaction): Promise<void>;
+	createRecurringNote(rec: RecurringTransaction): Promise<void>;
 	renameAccount(oldName: string, newName: string): Promise<void>;
 	saveSettings(): Promise<void>;
 }
@@ -34,12 +37,14 @@ export class LedgerMainView extends ItemView {
 	private plugin: Plugin;
 	private filters: Filters;
 	private showArchived: boolean;
+	private collapsedAccounts: Set<string>;
 
 	constructor(leaf: WorkspaceLeaf, plugin: Plugin) {
 		super(leaf);
 		this.plugin = plugin;
 		this.filters = { from: '', to: '', account: '', search: '' };
 		this.showArchived = false;
+		this.collapsedAccounts = new Set();
 	}
 
 	getViewType(): string { return VIEW_TYPE_LEDGER_MAIN; }
@@ -405,10 +410,7 @@ export class LedgerMainView extends ItemView {
 					if (rec._isCreditPayment) {
 						this.plugin.addCreditPayment(rec).then(() => this.render());
 					} else {
-						this.plugin.addTransaction({
-							date: todayStr(), payee: rec.payee, amount: rec.amount,
-							toAccount: rec.toAccount, fromAccount: rec.fromAccount, status: rec.status ?? '*',
-						}).then(() => this.render());
+						this.plugin.registerRecurringPayment(rec).then(() => this.render());
 					}
 				});
 			}
@@ -421,6 +423,12 @@ export class LedgerMainView extends ItemView {
 			} else {
 				infoSide.createSpan({ text: '✓', cls: 'sl-rec-status-paid' });
 			}
+
+			const noteBtn = bottomRow.createEl('button', { text: '📄', cls: 'sl-row-action-btn sl-rec-note', attr: { title: 'Abrir nota' } });
+			noteBtn.addEventListener('click', (e) => {
+				e.stopPropagation();
+				this.plugin.openRecurringNote(rec);
+			});
 
 			const editBtn = bottomRow.createEl('button', { text: '✎', cls: 'sl-row-action-btn sl-rec-edit', attr: { title: 'Editar' } });
 			editBtn.addEventListener('click', (e) => {
@@ -497,7 +505,12 @@ export class LedgerMainView extends ItemView {
 			const visible = sorted.slice(0, limit);
 			for (const tx of visible) {
 				const tr = tbody.createEl('tr', { cls: 'sl-main-tx-row' });
-				tr.createEl('td', { text: tx.date, cls: 'sl-td-date' });
+				const dateTd = tr.createEl('td', { cls: 'sl-td-date sl-td-date-link', attr: { title: 'Abrir nota diaria' } });
+				dateTd.textContent = tx.date;
+				dateTd.addEventListener('click', (e) => {
+					e.stopPropagation();
+					this._openDailyNote(tx.date);
+				});
 				tr.createEl('td', { text: tx.payee, cls: 'sl-td-payee' });
 
 				const posPosting = tx.postings.find(p => (p.amount ?? 0) > 0) ?? tx.postings[0];
@@ -615,9 +628,33 @@ export class LedgerMainView extends ItemView {
 			const fullName = prefix ? `${prefix}:${key}` : key;
 			if (archived.includes(fullName) && !isArchived) continue;
 
+			const hasChildren = Object.keys(node._children).length > 0;
+			const isCollapsed = this.collapsedAccounts.has(fullName);
+
 			const row = container.createDiv('sl-acct-row');
 			row.style.paddingLeft = `${depth * 16 + 8}px`;
-			const nameSpan = row.createSpan({ text: key, cls: 'sl-acct-name' });
+
+			if (hasChildren) {
+				const chevron = row.createSpan({ cls: 'sl-acct-chevron', text: isCollapsed ? '▶' : '▼' });
+				chevron.addEventListener('click', (e) => {
+					e.stopPropagation();
+					if (this.collapsedAccounts.has(fullName)) {
+						this.collapsedAccounts.delete(fullName);
+					} else {
+						this.collapsedAccounts.add(fullName);
+					}
+					this.render();
+				});
+			} else {
+				row.createSpan({ cls: 'sl-acct-chevron-placeholder' });
+			}
+
+			const nameSpan = row.createSpan({ text: key, cls: 'sl-acct-name sl-acct-clickable' });
+			nameSpan.addEventListener('click', () => {
+				this.filters.account = fullName;
+				this.render();
+			});
+
 			row.createSpan({
 				text: fmtAmount(node._total, settings),
 				cls: `sl-acct-bal ${node._total >= 0 ? 'sl-positive' : 'sl-negative'}`,
@@ -633,14 +670,7 @@ export class LedgerMainView extends ItemView {
 				}
 			});
 
-			nameSpan.addClass('sl-acct-clickable');
-			nameSpan.addEventListener('click', () => {
-				this.filters.account = fullName;
-				this.render();
-			});
-
-			const hasChildren = Object.keys(node._children).length > 0;
-			if (hasChildren) {
+			if (hasChildren && !isCollapsed) {
 				this._renderAccountTree(container, node._children, depth + 1, fullName, archived, isArchived);
 			}
 		}
@@ -650,6 +680,38 @@ export class LedgerMainView extends ItemView {
 		const card = parent.createDiv(`sl-card ${cls}`);
 		card.createDiv({ text: title, cls: 'sl-card-title' });
 		card.createDiv({ text: fmtAmount(amount, this.plugin.settings), cls: 'sl-card-amount' });
+	}
+
+	private async _openDailyNote(date: string): Promise<void> {
+		// date is YYYY/MM/DD
+		const app = this.app as any;
+
+		// Read config from Daily Notes core plugin or Periodic Notes community plugin
+		const corePlugin = app.internalPlugins?.plugins?.['daily-notes']?.instance;
+		const periodicPlugin = app.plugins?.plugins?.['periodic-notes'];
+
+		let format = 'YYYY-MM-DD';
+		let folder = '';
+
+		if (corePlugin?.options) {
+			format = corePlugin.options.format || format;
+			folder = corePlugin.options.folder || folder;
+		} else if (periodicPlugin?.settings?.daily) {
+			format = periodicPlugin.settings.daily.format || format;
+			folder = periodicPlugin.settings.daily.folder || folder;
+		}
+
+		// moment is globally available in Obsidian
+		const m = (window as any).moment(date.replace(/\//g, '-'), 'YYYY-MM-DD');
+		const fileName = m.format(format) + '.md';
+		const filePath = folder ? `${folder.replace(/\/$/, '')}/${fileName}` : fileName;
+
+		const file = this.app.vault.getAbstractFileByPath(filePath);
+		if (file) {
+			await this.app.workspace.openLinkText(filePath, '', false);
+		} else {
+			new Notice(`No existe nota diaria para ${date}`);
+		}
 	}
 
 	async onClose(): Promise<void> {}

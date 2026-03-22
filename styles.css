@@ -560,6 +560,15 @@
   white-space: nowrap;
 }
 
+.sl-td-date-link {
+  cursor: pointer;
+}
+
+.sl-td-date-link:hover {
+  color: var(--interactive-accent);
+  text-decoration: underline;
+}
+
 .sl-td-payee {
   font-weight: 500;
 }
@@ -903,6 +912,24 @@
 
 .sl-acct-group {
   margin-bottom: 8px;
+}
+
+.sl-acct-chevron {
+  font-size: 0.65em;
+  color: var(--text-muted);
+  cursor: pointer;
+  width: 14px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.sl-acct-chevron:hover {
+  color: var(--text-normal);
+}
+
+.sl-acct-chevron-placeholder {
+  width: 14px;
+  flex-shrink: 0;
 }
 
 .sl-acct-row {

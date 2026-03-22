@@ -58,6 +58,8 @@ export interface PluginSettings {
 	currencySymbol: string;
 	currencyAfter: boolean;
 	decimals: number;
+	thousandSeparator: string;
+	recurringNotesFolder: string;
 	defaultAccounts: DefaultAccounts;
 	archivedAccounts: string[];
 	recurringTransactions: RecurringTransaction[];

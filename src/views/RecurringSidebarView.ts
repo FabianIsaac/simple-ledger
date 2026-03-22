@@ -13,6 +13,9 @@ interface Plugin {
 	loadTransactions(): Promise<Transaction[]>;
 	addTransaction(data: AddTransactionData): Promise<void>;
 	addCreditPayment(rec: RecurringTransaction): Promise<void>;
+	registerRecurringPayment(rec: RecurringTransaction): Promise<void>;
+	openRecurringNote(rec: RecurringTransaction): Promise<void>;
+	createRecurringNote(rec: RecurringTransaction): Promise<void>;
 	saveSettings(): Promise<void>;
 	renameAccount(oldName: string, newName: string): Promise<void>;
 }
@@ -185,17 +188,14 @@ export class RecurringSidebarView extends ItemView {
 					if (rec._isCreditPayment) {
 						this.plugin.addCreditPayment(rec).then(() => this.render());
 					} else {
-						this.plugin.addTransaction({
-							date: todayStr(),
-							payee: rec.payee,
-							amount: rec.amount,
-							toAccount: rec.toAccount,
-							fromAccount: rec.fromAccount,
-							status: rec.status ?? '*',
-						}).then(() => this.render());
+						this.plugin.registerRecurringPayment(rec).then(() => this.render());
 					}
 				});
 			}
+			const noteBtn = actions.createEl('button', { text: '📄', cls: 'sl-row-action-btn', attr: { title: 'Abrir nota' } });
+			noteBtn.addEventListener('click', () => {
+				this.plugin.openRecurringNote(rec);
+			});
 			const editBtn = actions.createEl('button', { text: '✎', cls: 'sl-row-action-btn', attr: { title: 'Editar' } });
 			editBtn.addEventListener('click', () => {
 				if (isCredit) {
@@ -275,6 +275,10 @@ export class RecurringSidebarView extends ItemView {
 				} else {
 					actRow.createSpan({ text: '✓ Cuota pagada', cls: 'sl-rec-sb-paid-badge' });
 				}
+				const noteBtn = actRow.createEl('button', { text: '📄', cls: 'sl-quick-btn', attr: { title: 'Abrir nota' } });
+				noteBtn.addEventListener('click', () => {
+					this.plugin.openRecurringNote(recForCredit);
+				});
 			}
 		}
 	}
