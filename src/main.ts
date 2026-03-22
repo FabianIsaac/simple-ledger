@@ -99,6 +99,37 @@ export default class SimpleLedgerPlugin extends Plugin {
 			},
 		});
 
+		// Obsidian URI handler
+		// Usage: obsidian://simple-ledger?payee=Texto&amount=5000&to=Gastos:Comida&from=Activos:Banco
+		// Optional: &date=2026/03/22&status=*
+		this.registerObsidianProtocolHandler('simple-ledger', async (params) => {
+			const { payee, amount, to, from, date, status } = params;
+
+			if (!payee || !amount || !to || !from) {
+				new Notice('Simple Ledger (URI): faltan parametros. Requeridos: payee, amount, to, from');
+				new AddTransactionModal(this.app, this, (data) => {
+					this.addTransaction(data);
+				}).open();
+				return;
+			}
+
+			const amt = parseFloat(amount);
+			if (isNaN(amt) || amt <= 0) {
+				new Notice('Simple Ledger (URI): monto invalido');
+				return;
+			}
+
+			await this.loadTransactions();
+			await this.addTransaction({
+				date: date ?? todayStr(),
+				payee: payee,
+				amount: amt,
+				toAccount: to,
+				fromAccount: from,
+				status: status ?? '*',
+			});
+		});
+
 		// Code block processors
 		this.registerMarkdownCodeBlockProcessor('ledger-balance', (source, el) => {
 			this.loadTransactions().then(() => {

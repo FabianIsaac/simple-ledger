@@ -157,6 +157,21 @@ Activos:Banco:Santander
 
 The sidebar shows the aggregated balance at each parent level.
 
+### Using credit card accounts
+
+Liability accounts like `Pasivos:TarjetaCredito` require two specific transaction types that are available in both the transaction form and the Quick Add panel:
+
+| Type | Destination | Source | When to use |
+|------|-------------|--------|-------------|
+| **Cargo tarjeta** | `Gastos:*` | `Pasivos:TarjetaCredito` | Buying something with the card |
+| **Pago tarjeta** | `Pasivos:TarjetaCredito` | `Activos:Banco` | Paying the card balance |
+
+Example flow:
+1. You buy groceries with your credit card → **Cargo tarjeta**, amount `$85,000`, to `Gastos:Comida`, from `Pasivos:TarjetaCredito`
+2. At the end of the month you pay the card → **Pago tarjeta**, amount `$85,000`, to `Pasivos:TarjetaCredito`, from `Activos:Banco`
+
+The `Pasivos:TarjetaCredito` account will show a **negative** balance — this is correct in double-entry bookkeeping. The absolute value is what you owe.
+
 ---
 
 ## Recurring Transactions
@@ -435,6 +450,165 @@ Your data is stored as a plain-text file compatible with [ledger-cli](https://le
    - This records that your debt decreases along with your bank balance
 
 Using the **credit wizard** automates steps 2 and 3 entirely.
+
+---
+
+## Obsidian URI Support
+
+Simple Ledger supports [Obsidian URIs](https://help.obsidian.md/Extending+Obsidian/Obsidian+URI) so you can register transactions from outside Obsidian — phone home screen buttons, browser bookmarks, scripts, or any other app that can open a URL.
+
+### URI format
+
+```
+obsidian://simple-ledger?vault=VAULT_NAME&payee=DESCRIPTION&amount=AMOUNT&to=TO_ACCOUNT&from=FROM_ACCOUNT
+```
+
+### Parameters
+
+| Parameter | Required | Description | Example |
+|-----------|----------|-------------|---------|
+| `vault` | Recommended | Your Obsidian vault name. Required if you have more than one vault. | `MisFinanzas` |
+| `payee` | Yes | Transaction description | `Supermercado` |
+| `amount` | Yes | Numeric amount — no currency symbol, no thousands separators | `85000` |
+| `to` | Yes | Destination account (full name including prefix) | `Gastos:Comida` |
+| `from` | Yes | Source account (full name including prefix) | `Activos:Banco` |
+| `date` | No | Date in `YYYY/MM/DD` format. Defaults to today. | `2026/03/22` |
+| `status` | No | `*` = confirmed, `!` = pending, omit = unmarked. Defaults to `*`. | `*` |
+
+> **Finding your vault name:** In Obsidian, go to **Settings → About** and look at the vault name at the top, or check the folder name of your vault on disk. Spaces in the vault name must be encoded as `%20` (e.g. `vault=Mis%20Finanzas`).
+
+### URL encoding
+
+Account names use `:` as a separator (e.g. `Gastos:Comida`). Most tools handle this automatically, but if your environment requires strict encoding, replace `:` with `%3A` and spaces with `%20` or `+`.
+
+| Character | Encoded |
+|-----------|---------|
+| `:` | `%3A` (or leave as-is in most tools) |
+| space | `%20` or `+` |
+| `/` in dates | `%2F` (or leave as-is in most tools) |
+
+### Examples
+
+**Grocery expense paid in cash:**
+```
+obsidian://simple-ledger?vault=MyVault&payee=Supermercado&amount=85000&to=Gastos:Comida&from=Activos:Efectivo
+```
+
+**Charge something to a credit card:**
+```
+obsidian://simple-ledger?vault=MyVault&payee=Netflix&amount=15000&to=Gastos:Entretenimiento&from=Pasivos:TarjetaCredito
+```
+
+**Pay the credit card:**
+```
+obsidian://simple-ledger?vault=MyVault&payee=Pago+tarjeta&amount=150000&to=Pasivos:TarjetaCredito&from=Activos:Banco
+```
+
+**Record salary income on a specific date:**
+```
+obsidian://simple-ledger?vault=MyVault&payee=Salario+Marzo&amount=1000000&to=Activos:Banco&from=Ingresos:Salario&date=2026/03/31
+```
+
+**Mark a transaction as pending:**
+```
+obsidian://simple-ledger?vault=MyVault&payee=Arriendo&amount=400000&to=Gastos:Hogar&from=Activos:Banco&status=!
+```
+
+If any required parameter (`payee`, `amount`, `to`, `from`) is missing, the plugin opens the transaction form so you can fill in the rest manually.
+
+---
+
+### Setting up iOS Shortcuts
+
+iOS Shortcuts lets you create home screen buttons that record a transaction in one tap — ideal for coffee, transport, or any daily expense.
+
+**Create a simple one-tap expense button:**
+
+1. Open the **Shortcuts** app → tap **+** to create a new shortcut
+2. Tap **Add action** → search for **"Open URLs"** and select it
+3. Paste your URI in the URL field:
+   ```
+   obsidian://simple-ledger?vault=MyVault&payee=Cafe&amount=3000&to=Gastos:Comida&from=Activos:Efectivo
+   ```
+4. Tap the shortcut name at the top to rename it (e.g. "☕ Café")
+5. Tap **Done**
+6. Long-press the shortcut → **Add to Home Screen**
+
+Now tapping that icon on your home screen registers the transaction immediately and opens Obsidian to confirm it.
+
+**Create a shortcut that asks for the amount each time:**
+
+1. Create a new shortcut
+2. Add action **"Ask for Input"** → set type to **Number**, prompt to `Monto`
+3. Add action **"Open URLs"**
+4. In the URL field, tap where you want the amount and insert the **"Provided Input"** variable from the action list:
+   ```
+   obsidian://simple-ledger?vault=MyVault&payee=Gasto&amount=[Provided Input]&to=Gastos:Otros&from=Activos:Banco
+   ```
+5. Name it and add it to the Home Screen
+
+This way the shortcut asks you for the amount before opening Obsidian.
+
+---
+
+### Setting up Android Shortcuts
+
+**Using the HTTP Shortcuts app (recommended):**
+
+1. Install [HTTP Shortcuts](https://play.google.com/store/apps/details?id=ch.rmy.android.http_shortcuts) from the Play Store
+2. Tap **+** → **Browser Shortcut**
+3. Set the URL to your URI:
+   ```
+   obsidian://simple-ledger?vault=MyVault&payee=Supermercado&amount=85000&to=Gastos:Comida&from=Activos:Banco
+   ```
+4. Give it a name and icon
+5. Long-press the shortcut in the app → **Place on Home Screen**
+
+**Using Tasker:**
+
+1. Create a new **Task**
+2. Add action **Misc → Browse URL**
+3. Set the URL to your `obsidian://simple-ledger?...` URI
+4. Create a **Task Shortcut** widget on the home screen pointing to that task
+
+---
+
+### Browser bookmark (desktop)
+
+On desktop you can save URIs as browser bookmarks for quick logging from your browser.
+
+1. In your browser, create a new bookmark
+2. Set the **URL** to:
+   ```
+   obsidian://simple-ledger?vault=MyVault&payee=Almuerzo&amount=12000&to=Gastos:Comida&from=Activos:Banco
+   ```
+3. Give it a name and place it in your bookmarks bar
+
+Clicking it will switch to Obsidian and register the transaction.
+
+---
+
+### Scripting and automation
+
+You can call the URI from any script. The exact method depends on your operating system:
+
+**macOS / Linux:**
+```bash
+open "obsidian://simple-ledger?vault=MyVault&payee=Suscripcion&amount=9900&to=Gastos:Entretenimiento&from=Activos:Banco"
+```
+
+**Windows (PowerShell):**
+```powershell
+Start-Process "obsidian://simple-ledger?vault=MyVault&payee=Suscripcion&amount=9900&to=Gastos:Entretenimiento&from=Activos:Banco"
+```
+
+**Windows (CMD):**
+```cmd
+start obsidian://simple-ledger?vault=MyVault^&payee=Suscripcion^&amount=9900^&to=Gastos:Entretenimiento^&from=Activos:Banco
+```
+> Note: In CMD, escape `&` with `^`.
+
+This makes it easy to trigger ledger entries from cron jobs, calendar reminders, or other automations.
 
 ---
 

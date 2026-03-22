@@ -65,7 +65,8 @@ export class QuickAddView extends ItemView {
 			{ key: 'expense', label: 'Gasto', dest: 'expenses', src: 'assets', icon: '↗' },
 			{ key: 'income', label: 'Ingreso', dest: 'assets', src: 'income', icon: '↙' },
 			{ key: 'transfer', label: 'Transferencia', dest: 'assets', src: 'assets', icon: '⇄' },
-			{ key: 'debt', label: 'Deuda', dest: 'liabilities', src: 'assets', icon: '🏦' },
+			{ key: 'card_charge', label: 'Cargo tarjeta', dest: 'expenses', src: 'liabilities', icon: '💳' },
+			{ key: 'card_payment', label: 'Pago tarjeta', dest: 'liabilities', src: 'assets', icon: '🏦' },
 		];
 
 		for (const t of types) {

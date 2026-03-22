@@ -79,6 +79,8 @@ export class AddTransactionModal extends Modal {
 			{ label: 'Gasto', dest: 'expenses', src: 'assets' },
 			{ label: 'Ingreso', dest: 'assets', src: 'income' },
 			{ label: 'Transferencia', dest: 'assets', src: 'assets' },
+			{ label: 'Cargo tarjeta', dest: 'expenses', src: 'liabilities' },
+			{ label: 'Pago tarjeta', dest: 'liabilities', src: 'assets' },
 		];
 		types.forEach((t, idx) => {
 			const btn = btnGroup.createEl('button', { text: t.label, cls: idx === 0 ? 'sl-type-btn sl-active' : 'sl-type-btn' });
