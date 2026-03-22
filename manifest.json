@@ -1,0 +1,10 @@
+{
+	"id": "simple-ledger",
+	"name": "Simple Ledger",
+	"version": "1.0.0",
+	"minAppVersion": "1.0.0",
+	"description": "Simple personal accounting inside Obsidian, inspired by ledger-cli. Track income, expenses, transfers and debts using double-entry bookkeeping.",
+	"author": "FabianIsaac",
+	"authorUrl": "https://github.com/FabianIsaac",
+	"isDesktopOnly": false
+}
