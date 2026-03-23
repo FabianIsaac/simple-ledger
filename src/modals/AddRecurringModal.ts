@@ -101,6 +101,7 @@ export class AddRecurringModal extends Modal {
 		const btnGroup = typeRow.createDiv('sl-btn-group');
 		const types = [
 			{ label: 'Gasto', dest: 'expenses', src: 'assets' },
+			{ label: 'Tarjeta', dest: 'expenses', src: 'liabilities' },
 			{ label: 'Ingreso', dest: 'assets', src: 'income' },
 			{ label: 'Deuda', dest: 'liabilities', src: 'assets' },
 		];
@@ -129,8 +130,10 @@ export class AddRecurringModal extends Modal {
 		if (this.isEditing) {
 			if (this.rec.toAccount.startsWith('Activos') && this.rec.fromAccount.startsWith('Ingresos')) {
 				currentDest = 'assets'; currentSrc = 'income';
-			} else if (this.rec.toAccount.startsWith('Pasivos')) {
+			} else if (this.rec.toAccount.startsWith('Pasivos') && this.rec.fromAccount.startsWith('Activos')) {
 				currentDest = 'liabilities'; currentSrc = 'assets';
+			} else if (this.rec.toAccount.startsWith('Gastos') && this.rec.fromAccount.startsWith('Pasivos')) {
+				currentDest = 'expenses'; currentSrc = 'liabilities';
 			}
 		}
 		populateSelect(toSelect, currentDest, this.rec.toAccount);
