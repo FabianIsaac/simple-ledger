@@ -1,12 +1,9 @@
-import { PluginSettings, Transaction } from '../types';
+import { ISimpleLedgerPlugin } from '../types';
 import { LedgerParser } from '../parser/LedgerParser';
 import { fmtAmount } from '../utils/formatting';
 import { parseBlockOptions, filterTransactions } from '../utils/filters';
 
-interface Plugin {
-	settings: PluginSettings;
-	transactions: Transaction[];
-}
+type Plugin = ISimpleLedgerPlugin;
 
 export function renderBalanceBlock(el: HTMLElement, plugin: Plugin, source: string): void {
 	const settings = plugin.settings;

@@ -1,6 +1,14 @@
 import { PluginSettings } from './types';
 
 export const PLUGIN_ID = 'simple-ledger';
+
+/** Prefijos canónicos de las categorías de cuentas. */
+export const ACCT = {
+	income: 'Ingresos',
+	expenses: 'Gastos',
+	assets: 'Activos',
+	liabilities: 'Pasivos',
+} as const;
 export const VIEW_TYPE_LEDGER = 'simple-ledger-view';
 export const VIEW_TYPE_LEDGER_MAIN = 'simple-ledger-main-view';
 export const VIEW_TYPE_RECURRING = 'simple-ledger-recurring-view';
@@ -32,4 +40,5 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	archivedAccounts: [],
 	recurringTransactions: [],
 	credits: [],
+	savedFilters: { from: '', to: '', account: '', search: '' },
 };

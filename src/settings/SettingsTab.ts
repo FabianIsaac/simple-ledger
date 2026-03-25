@@ -1,13 +1,8 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
-import { PluginSettings } from '../types';
+import { PluginSettings, ISimpleLedgerPlugin } from '../types';
 import { ManageAccountsModal } from '../modals/ManageAccountsModal';
 
-interface Plugin {
-	app: App;
-	settings: PluginSettings;
-	saveSettings(): Promise<void>;
-	renameAccount(oldName: string, newName: string): Promise<void>;
-}
+type Plugin = ISimpleLedgerPlugin;
 
 export class LedgerSettingTab extends PluginSettingTab {
 	private plugin: Plugin;

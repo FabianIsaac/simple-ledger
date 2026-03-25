@@ -1,11 +1,8 @@
 import { App, Modal, Notice } from 'obsidian';
-import { AddTransactionData, PluginSettings } from '../types';
+import { AddTransactionData, ISimpleLedgerPlugin } from '../types';
 import { todayStr } from '../utils/formatting';
 
-interface Plugin {
-	settings: PluginSettings;
-	transactions: import('../types').Transaction[];
-}
+type Plugin = ISimpleLedgerPlugin;
 
 export class AddTransactionModal extends Modal {
 	private plugin: Plugin;
@@ -16,6 +13,7 @@ export class AddTransactionModal extends Modal {
 	private toAccount: string;
 	private amount: string;
 	private status: string;
+	private notes: string;
 
 	constructor(app: App, plugin: Plugin, onSubmit: (data: AddTransactionData) => void) {
 		super(app);
@@ -27,6 +25,7 @@ export class AddTransactionModal extends Modal {
 		this.toAccount = '';
 		this.amount = '';
 		this.status = '*';
+		this.notes = '';
 	}
 
 	onOpen(): void {
@@ -57,6 +56,18 @@ export class AddTransactionModal extends Modal {
 		const amountInput = amountRow.createEl('input', { type: 'number', attr: { step: '0.01', min: '0' }, placeholder: '0.00' });
 		amountInput.addEventListener('input', (e) => { this.amount = (e.target as HTMLInputElement).value; });
 
+		// Type quick buttons (first so user picks type before accounts)
+		const typeRow = contentEl.createDiv('sl-form-row sl-type-row');
+		typeRow.createEl('label', { text: 'Tipo' });
+		const btnGroup = typeRow.createDiv('sl-btn-group');
+		const types = [
+			{ label: 'Gasto', dest: 'expenses', src: 'assets' },
+			{ label: 'Ingreso', dest: 'assets', src: 'income' },
+			{ label: 'Transferencia', dest: 'assets', src: 'assets' },
+			{ label: 'Cargo TC', dest: 'expenses', src: 'liabilities' },
+			{ label: 'Pago TC', dest: 'liabilities', src: 'assets' },
+		];
+
 		// Destination account
 		const toRow = contentEl.createDiv('sl-form-row');
 		toRow.createEl('label', { text: 'Destino (a donde va)' });
@@ -71,17 +82,6 @@ export class AddTransactionModal extends Modal {
 		this._populateAccountSelect(fromSelect, 'assets');
 		fromSelect.addEventListener('change', (e) => { this.fromAccount = (e.target as HTMLSelectElement).value; });
 
-		// Type quick buttons
-		const typeRow = contentEl.createDiv('sl-form-row sl-type-row');
-		typeRow.createEl('label', { text: 'Tipo' });
-		const btnGroup = typeRow.createDiv('sl-btn-group');
-		const types = [
-			{ label: 'Gasto', dest: 'expenses', src: 'assets' },
-			{ label: 'Ingreso', dest: 'assets', src: 'income' },
-			{ label: 'Transferencia', dest: 'assets', src: 'assets' },
-			{ label: 'Cargo tarjeta', dest: 'expenses', src: 'liabilities' },
-			{ label: 'Pago tarjeta', dest: 'liabilities', src: 'assets' },
-		];
 		types.forEach((t, idx) => {
 			const btn = btnGroup.createEl('button', { text: t.label, cls: idx === 0 ? 'sl-type-btn sl-active' : 'sl-type-btn' });
 			btn.addEventListener('click', (e) => {
@@ -104,6 +104,12 @@ export class AddTransactionModal extends Modal {
 		statusSelect.createEl('option', { value: '', text: 'Sin marcar' });
 		statusSelect.addEventListener('change', (e) => { this.status = (e.target as HTMLSelectElement).value; });
 
+		// Notes
+		const notesRow = contentEl.createDiv('sl-form-row');
+		notesRow.createEl('label', { text: 'Notas (opcional)' });
+		const notesInput = notesRow.createEl('textarea', { attr: { rows: '2', placeholder: 'Comentario o detalle adicional...' } });
+		notesInput.addEventListener('input', (e) => { this.notes = (e.target as HTMLTextAreaElement).value; });
+
 		// Submit
 		const btnRow = contentEl.createDiv('sl-form-row sl-btn-row');
 		const submitBtn = btnRow.createEl('button', { text: 'Guardar transaccion', cls: 'mod-cta sl-submit-btn' });
@@ -119,6 +125,7 @@ export class AddTransactionModal extends Modal {
 				toAccount: this.toAccount,
 				fromAccount: this.fromAccount,
 				status: this.status,
+				notes: this.notes.trim() || undefined,
 			});
 			this.close();
 		});

@@ -1,6 +1,6 @@
 import { ItemView, Notice, WorkspaceLeaf } from 'obsidian';
-import { VIEW_TYPE_LEDGER_MAIN } from '../constants';
-import { PluginSettings, Transaction, BalanceTree, AddTransactionData, RecurringTransaction } from '../types';
+import { VIEW_TYPE_LEDGER_MAIN, ACCT } from '../constants';
+import { PluginSettings, Transaction, BalanceTree, AddTransactionData, RecurringTransaction, ISimpleLedgerPlugin } from '../types';
 import { LedgerParser } from '../parser/LedgerParser';
 import { fmtAmount, todayStr } from '../utils/formatting';
 import { isRecurringPaidThisPeriod, getNextDueDate, FREQUENCY_LABELS } from '../utils/recurring';
@@ -18,19 +18,22 @@ interface Filters {
 	search: string;
 }
 
-interface Plugin {
-	settings: PluginSettings;
-	transactions: Transaction[];
-	loadTransactions(): Promise<Transaction[]>;
-	addTransaction(data: AddTransactionData): Promise<void>;
-	updateTransaction(oldTx: Transaction, newData: AddTransactionData): Promise<void>;
-	deleteTransaction(tx: Transaction): Promise<void>;
-	addCreditPayment(rec: RecurringTransaction): Promise<void>;
-	registerRecurringPayment(rec: RecurringTransaction): Promise<void>;
-	openRecurringNote(rec: RecurringTransaction): Promise<void>;
-	createRecurringNote(rec: RecurringTransaction): Promise<void>;
-	renameAccount(oldName: string, newName: string): Promise<void>;
-	saveSettings(): Promise<void>;
+type Plugin = ISimpleLedgerPlugin;
+
+/** Para el árbol de cuentas: usa el saldo real para colorear activos. */
+function acctColor(fullName: string, amount: number): string {
+	if (fullName.startsWith(ACCT.expenses)) return 'sl-acct-expense';
+	if (fullName.startsWith(ACCT.liabilities)) return 'sl-acct-liability';
+	if (fullName.startsWith(ACCT.income)) return 'sl-acct-income';
+	return amount >= 0 ? 'sl-positive' : 'sl-negative';
+}
+
+/** Para etiquetas de cuenta en transacciones: activos sin color especial. */
+function acctLabelColor(account: string): string {
+	if (account.startsWith(ACCT.expenses)) return 'sl-label-expense';
+	if (account.startsWith(ACCT.liabilities)) return 'sl-label-liability';
+	if (account.startsWith(ACCT.income)) return 'sl-label-income';
+	return '';
 }
 
 export class LedgerMainView extends ItemView {
@@ -52,6 +55,9 @@ export class LedgerMainView extends ItemView {
 	getIcon(): string { return 'bar-chart-2'; }
 
 	async onOpen(): Promise<void> {
+		// Restaurar filtros guardados
+		const saved = this.plugin.settings.savedFilters;
+		if (saved) this.filters = { ...saved };
 		await this.plugin.loadTransactions();
 		this.render();
 	}
@@ -83,21 +89,15 @@ export class LedgerMainView extends ItemView {
 		const header = container.createDiv('sl-main-header');
 		const titleRow = header.createDiv('sl-main-title-row');
 		titleRow.createEl('h2', { text: 'Simple Ledger' });
-		const addBtn = titleRow.createEl('button', { text: '+ Nueva transaccion', cls: 'mod-cta sl-main-add-btn' });
-		addBtn.addEventListener('click', () => {
-			new AddTransactionModal(this.app, this.plugin, (data) => {
-				this.plugin.addTransaction(data).then(() => this.render());
-			}).open();
-		});
 
-		this._renderFilters(header, allTxs);
+		this._renderFilters(header, allTxs, txs);
 
 		// Summary cards
 		const balances = LedgerParser.computeBalances(txs);
-		const totalIncome = Object.entries(balances).filter(([k]) => k.startsWith('Ingresos')).reduce((s, [, v]) => s + Math.abs(v), 0);
-		const totalExpenses = Object.entries(balances).filter(([k]) => k.startsWith('Gastos')).reduce((s, [, v]) => s + Math.abs(v), 0);
-		const totalAssets = Object.entries(balances).filter(([k]) => k.startsWith('Activos')).reduce((s, [, v]) => s + v, 0);
-		const totalLiabilities = Object.entries(balances).filter(([k]) => k.startsWith('Pasivos')).reduce((s, [, v]) => s + Math.abs(v), 0);
+		const totalIncome = Object.entries(balances).filter(([k]) => k.startsWith(ACCT.income)).reduce((s, [, v]) => s + Math.abs(v), 0);
+		const totalExpenses = Object.entries(balances).filter(([k]) => k.startsWith(ACCT.expenses)).reduce((s, [, v]) => s + Math.abs(v), 0);
+		const totalAssets = Object.entries(balances).filter(([k]) => k.startsWith(ACCT.assets)).reduce((s, [, v]) => s + v, 0);
+		const totalLiabilities = Object.entries(balances).filter(([k]) => k.startsWith(ACCT.liabilities)).reduce((s, [, v]) => s + Math.abs(v), 0);
 
 		const cards = container.createDiv('sl-main-cards');
 		this._card(cards, 'Ingresos', totalIncome, 'sl-card-income');
@@ -116,16 +116,26 @@ export class LedgerMainView extends ItemView {
 		this._renderRecurring(rightCol);
 	}
 
-	private _renderFilters(parent: HTMLElement, allTxs: Transaction[]): void {
-		const bar = parent.createDiv('sl-filter-bar');
+	applyFilters(partial: Partial<Filters>): void {
+		this.filters = { ...this.filters, ...partial };
+		this._saveAndRender();
+	}
 
+	private _saveAndRender(): void {
+		this.plugin.settings.savedFilters = { ...this.filters };
+		this.plugin.saveSettings();
+		this.render();
+	}
+
+	private _renderFilters(parent: HTMLElement, allTxs: Transaction[], filteredTxs: Transaction[]): void {
+		const bar = parent.createDiv('sl-filter-bar');
 		const dateGroup = bar.createDiv('sl-filter-group');
 		dateGroup.createEl('label', { text: 'Desde' });
 		const fromInput = dateGroup.createEl('input', { type: 'date', cls: 'sl-filter-input' });
 		fromInput.value = this.filters.from ? this.filters.from.replace(/\//g, '-') : '';
 		fromInput.addEventListener('change', (e) => {
 			this.filters.from = (e.target as HTMLInputElement).value.replace(/-/g, '/');
-			this.render();
+			this._saveAndRender();
 		});
 
 		const dateGroup2 = bar.createDiv('sl-filter-group');
@@ -134,7 +144,7 @@ export class LedgerMainView extends ItemView {
 		toInput.value = this.filters.to ? this.filters.to.replace(/\//g, '-') : '';
 		toInput.addEventListener('change', (e) => {
 			this.filters.to = (e.target as HTMLInputElement).value.replace(/-/g, '/');
-			this.render();
+			this._saveAndRender();
 		});
 
 		const acctGroup = bar.createDiv('sl-filter-group');
@@ -151,7 +161,7 @@ export class LedgerMainView extends ItemView {
 		}
 		acctSelect.addEventListener('change', (e) => {
 			this.filters.account = (e.target as HTMLSelectElement).value;
-			this.render();
+			this._saveAndRender();
 		});
 
 		const searchGroup = bar.createDiv('sl-filter-group');
@@ -163,7 +173,7 @@ export class LedgerMainView extends ItemView {
 			clearTimeout(searchTimeout);
 			searchTimeout = setTimeout(() => {
 				this.filters.search = (e.target as HTMLInputElement).value;
-				this.render();
+				this._saveAndRender();
 			}, 300);
 		});
 
@@ -187,8 +197,22 @@ export class LedgerMainView extends ItemView {
 		];
 		for (const q of quickBtns) {
 			const btn = quickGroup.createEl('button', { text: q.label, cls: 'sl-quick-btn' });
-			btn.addEventListener('click', () => { q.fn(); this.render(); });
+			btn.addEventListener('click', () => { q.fn(); this._saveAndRender(); });
 		}
+
+		const actionGroup = bar.createDiv('sl-filter-actions');
+		const addBtn = actionGroup.createEl('button', { text: '+ Nueva', cls: 'mod-cta sl-main-add-btn' });
+		addBtn.addEventListener('click', () => {
+			new AddTransactionModal(this.app, this.plugin, (data) => {
+				this.plugin.addTransaction(data).then(() => this.render());
+			}).open();
+		});
+		const refreshBtn = actionGroup.createEl('button', { text: '↻', cls: 'sl-header-btn', attr: { title: 'Recargar' } });
+		refreshBtn.addEventListener('click', () => {
+			this.plugin.loadTransactions().then(() => this.render());
+		});
+		const csvBtn = actionGroup.createEl('button', { text: '⬇ CSV', cls: 'sl-header-btn', attr: { title: 'Exportar a CSV' } });
+		csvBtn.addEventListener('click', () => this._exportCSV(filteredTxs));
 	}
 
 	private _renderChart(parent: HTMLElement, allTxs: Transaction[], filteredTxs: Transaction[]): void {
@@ -207,9 +231,9 @@ export class LedgerMainView extends ItemView {
 			if (!dailyData[tx.date]) dailyData[tx.date] = { income: 0, expenses: 0 };
 			const day = dailyData[tx.date]!;
 			for (const p of tx.postings) {
-				if (p.account.startsWith('Ingresos') && p.amount !== null) {
+				if (p.account.startsWith(ACCT.income) && p.amount !== null) {
 					day.income += Math.abs(p.amount);
-				} else if (p.account.startsWith('Gastos') && p.amount !== null) {
+				} else if (p.account.startsWith(ACCT.expenses) && p.amount !== null) {
 					day.expenses += Math.abs(p.amount);
 				}
 			}
@@ -390,7 +414,7 @@ export class LedgerMainView extends ItemView {
 
 		const renderCard = (item: typeof withStatus[0], showPayBtn: boolean) => {
 			const { rec, isPaid, nextDue } = item;
-			const isExpense = rec.toAccount.startsWith('Gastos') || rec.toAccount.startsWith('Pasivos');
+			const isExpense = rec.toAccount.startsWith(ACCT.expenses) || rec.toAccount.startsWith(ACCT.liabilities);
 
 			const card = grid.createDiv(`sl-rec-card ${isPaid ? 'sl-rec-paid' : 'sl-rec-pending'}`);
 
@@ -486,49 +510,51 @@ export class LedgerMainView extends ItemView {
 		const settings = this.plugin.settings;
 		const sorted = [...txs].sort((a, b) => b.date.localeCompare(a.date));
 
-		const table = section.createEl('table', { cls: 'sl-table sl-main-table' });
-		const thead = table.createEl('thead');
-		const hr = thead.createEl('tr');
-		hr.createEl('th', { text: 'Fecha' });
-		hr.createEl('th', { text: 'Descripcion' });
-		hr.createEl('th', { text: 'Destino' });
-		hr.createEl('th', { text: 'Origen' });
-		hr.createEl('th', { text: 'Monto', cls: 'sl-th-right' });
-		hr.createEl('th', { text: '', cls: 'sl-th-actions' });
-
-		const tbody = table.createEl('tbody');
+		const list = section.createDiv('sl-tx-list-main');
 		const pageSize = 20;
 		let showing = pageSize;
 
-		const renderRows = (limit: number) => {
-			tbody.empty();
+		const renderItems = (limit: number) => {
+			list.empty();
 			const visible = sorted.slice(0, limit);
 			for (const tx of visible) {
-				const tr = tbody.createEl('tr', { cls: 'sl-main-tx-row' });
-				const dateTd = tr.createEl('td', { cls: 'sl-td-date sl-td-date-link', attr: { title: 'Abrir nota diaria' } });
-				dateTd.textContent = tx.date;
-				dateTd.addEventListener('click', (e) => {
+				const posPosting = tx.postings.find(p => (p.amount ?? 0) > 0) ?? tx.postings[0];
+				const negPosting = tx.postings.find(p => (p.amount ?? 0) < 0) ?? tx.postings[1];
+				const amt = posPosting?.amount ?? 0;
+				const isExpense = posPosting && posPosting.account.startsWith(ACCT.expenses);
+				const isLiability = posPosting && posPosting.account.startsWith(ACCT.liabilities);
+				const amtColor = (isExpense || isLiability) ? 'sl-negative' : 'sl-positive';
+
+				const item = list.createDiv('sl-tx-item');
+
+				// Left: date + main info
+				const left = item.createDiv('sl-tx-item-left');
+
+				const topRow = left.createDiv('sl-tx-item-top');
+				const dateSpan = topRow.createSpan({ text: tx.date, cls: 'sl-tx-item-date sl-tx-item-date-link', attr: { title: 'Abrir nota diaria' } });
+				dateSpan.addEventListener('click', (e) => {
 					e.stopPropagation();
 					this._openDailyNote(tx.date);
 				});
-				tr.createEl('td', { text: tx.payee, cls: 'sl-td-payee' });
+				const payeeSpan = topRow.createSpan({ text: tx.payee, cls: 'sl-tx-item-payee' });
+				if (tx.notes) {
+					payeeSpan.setAttribute('title', tx.notes);
+					topRow.createSpan({ text: 'ⓘ', cls: 'sl-tx-item-note-icon', attr: { title: tx.notes } });
+				}
 
-				const posPosting = tx.postings.find(p => (p.amount ?? 0) > 0) ?? tx.postings[0];
-				const negPosting = tx.postings.find(p => (p.amount ?? 0) < 0) ?? tx.postings[1];
-				tr.createEl('td', { text: posPosting?.account ?? '', cls: 'sl-td-account' });
-				tr.createEl('td', { text: negPosting?.account ?? '', cls: 'sl-td-account' });
+				const bottomRow = left.createDiv('sl-tx-item-bottom');
+				const negAcct = negPosting?.account ?? '';
+				const posAcct = posPosting?.account ?? '';
+				bottomRow.createSpan({ text: negAcct, cls: `sl-tx-item-account ${acctLabelColor(negAcct)}` });
+				bottomRow.createSpan({ text: '→', cls: 'sl-tx-item-arrow' });
+				bottomRow.createSpan({ text: posAcct, cls: `sl-tx-item-account ${acctLabelColor(posAcct)}` });
 
-				const amt = posPosting?.amount ?? 0;
-				const isExpense = posPosting && posPosting.account.startsWith('Gastos');
-				const isLiability = posPosting && posPosting.account.startsWith('Pasivos');
-				const amtColor = (isExpense || isLiability) ? 'sl-negative' : 'sl-positive';
-				tr.createEl('td', {
-					text: fmtAmount(Math.abs(amt), settings),
-					cls: `sl-td-right ${amtColor}`,
-				});
+				// Right: amount + actions
+				const right = item.createDiv('sl-tx-item-right');
+				right.createDiv({ text: fmtAmount(Math.abs(amt), settings), cls: `sl-tx-item-amount ${amtColor}` });
 
-				const actTd = tr.createEl('td', { cls: 'sl-td-actions' });
-				const editBtn = actTd.createEl('button', { text: '✎', cls: 'sl-row-action-btn', attr: { title: 'Editar' } });
+				const actions = right.createDiv('sl-tx-item-actions');
+				const editBtn = actions.createEl('button', { text: '✎', cls: 'sl-row-action-btn', attr: { title: 'Editar' } });
 				editBtn.addEventListener('click', (e) => {
 					e.stopPropagation();
 					new EditTransactionModal(
@@ -537,7 +563,7 @@ export class LedgerMainView extends ItemView {
 						(txToDelete) => { this.plugin.deleteTransaction(txToDelete).then(() => this.render()); }
 					).open();
 				});
-				const delBtn = actTd.createEl('button', { text: '×', cls: 'sl-row-action-btn sl-row-del', attr: { title: 'Eliminar' } });
+				const delBtn = actions.createEl('button', { text: '×', cls: 'sl-row-action-btn sl-row-del', attr: { title: 'Eliminar' } });
 				delBtn.addEventListener('click', (e) => {
 					e.stopPropagation();
 					new ConfirmDeleteModal(this.app, tx.payee, () => {
@@ -546,13 +572,13 @@ export class LedgerMainView extends ItemView {
 				});
 			}
 		};
-		renderRows(showing);
+		renderItems(showing);
 
 		if (sorted.length > pageSize) {
 			const moreBtn = section.createEl('button', { text: `Mostrar mas (${sorted.length - pageSize} restantes)`, cls: 'sl-show-all-btn' });
 			moreBtn.addEventListener('click', () => {
 				showing = sorted.length;
-				renderRows(showing);
+				renderItems(showing);
 				moreBtn.remove();
 			});
 		}
@@ -602,7 +628,7 @@ export class LedgerMainView extends ItemView {
 					const bal = balances[acct] ?? 0;
 					row.createSpan({
 						text: fmtAmount(bal, settings),
-						cls: `sl-acct-bal ${bal >= 0 ? 'sl-positive' : 'sl-negative'}`,
+						cls: `sl-acct-bal ${acctColor(acct, bal)}`,
 					});
 					const unarchBtn = row.createEl('button', { text: 'Restaurar', cls: 'sl-quick-btn', attr: { title: 'Desarchivar' } });
 					unarchBtn.addEventListener('click', () => {
@@ -657,7 +683,7 @@ export class LedgerMainView extends ItemView {
 
 			row.createSpan({
 				text: fmtAmount(node._total, settings),
-				cls: `sl-acct-bal ${node._total >= 0 ? 'sl-positive' : 'sl-negative'}`,
+				cls: `sl-acct-bal ${acctColor(fullName, node._total)}`,
 			});
 
 			const archBtn = row.createEl('button', { text: '📦', cls: 'sl-archive-btn', attr: { title: 'Archivar cuenta' } });
@@ -712,6 +738,41 @@ export class LedgerMainView extends ItemView {
 		} else {
 			new Notice(`No existe nota diaria para ${date}`);
 		}
+	}
+
+	private _exportCSV(txs: Transaction[]): void {
+		const settings = this.plugin.settings;
+		const sorted = [...txs].sort((a, b) => a.date.localeCompare(b.date));
+
+		const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
+		const rows: string[] = ['Fecha,Descripcion,Cuenta destino,Cuenta origen,Monto,Estado'];
+
+		for (const tx of sorted) {
+			const pos = tx.postings.find(p => (p.amount ?? 0) > 0) ?? tx.postings[0];
+			const neg = tx.postings.find(p => (p.amount ?? 0) < 0) ?? tx.postings[1];
+			const amt = Math.abs(pos?.amount ?? 0);
+			rows.push([
+				escape(tx.date),
+				escape(tx.payee),
+				escape(pos?.account ?? ''),
+				escape(neg?.account ?? ''),
+				amt.toFixed(settings.decimals),
+				escape(tx.status),
+			].join(','));
+		}
+
+		const csv = rows.join('\n');
+		const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `ledger-export-${new Date().toISOString().slice(0, 10)}.csv`;
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+		URL.revokeObjectURL(url);
+
+		new Notice(`CSV exportado: ${sorted.length} transacciones`);
 	}
 
 	async onClose(): Promise<void> {}

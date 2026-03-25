@@ -384,3 +384,79 @@ describe('LedgerParser.computeBalanceTree', () => {
 		expect(tree['Activos']!._total).toBe(4700);
 	});
 });
+
+// ─── LedgerParser.sanitizeText ─────────────────────────────────────────────
+
+describe('LedgerParser.sanitizeText', () => {
+	it('elimina saltos de linea \\n del texto', () => {
+		expect(LedgerParser.sanitizeText('Payee\nInyectado')).toBe('Payee Inyectado');
+	});
+
+	it('elimina retornos de carro \\r', () => {
+		expect(LedgerParser.sanitizeText('Payee\rTexto')).toBe('Payee Texto');
+	});
+
+	it('elimina tabuladores \\t', () => {
+		expect(LedgerParser.sanitizeText('Cuenta\tNombre')).toBe('Cuenta Nombre');
+	});
+
+	it('elimina combinacion \\r\\n y colapsa espacios dobles', () => {
+		expect(LedgerParser.sanitizeText('Texto\r\nInyectado')).toBe('Texto Inyectado');
+	});
+
+	it('no altera texto normal', () => {
+		expect(LedgerParser.sanitizeText('Gastos:Comida:Restaurantes')).toBe('Gastos:Comida:Restaurantes');
+	});
+
+	it('aplica trim al resultado', () => {
+		expect(LedgerParser.sanitizeText('  Payee  ')).toBe('Payee');
+	});
+});
+
+// ─── LedgerParser.formatTransaction — sanitizacion ─────────────────────────
+
+describe('LedgerParser.formatTransaction sanitizacion', () => {
+	it('un payee con \\n no genera multiples lineas de header', () => {
+		const text = LedgerParser.formatTransaction(
+			'2024/01/01',
+			'Payee\nInyectado',
+			[
+				{ account: 'Gastos:Comida', amount: 1000, currency: '', amountFormatted: '$1.000' },
+				{ account: 'Activos:Banco', amount: -1000, currency: '', amountFormatted: '-$1.000' },
+			],
+			'*'
+		);
+		const headerLines = text.split('\n').filter(l => /^\d{4}/.test(l));
+		expect(headerLines).toHaveLength(1);
+		expect(headerLines[0]).not.toContain('\n');
+	});
+
+	it('una cuenta con \\n no rompe la estructura del archivo', () => {
+		const text = LedgerParser.formatTransaction(
+			'2024/01/01',
+			'Test',
+			[
+				{ account: 'Gastos:Comida\nMaliciosa', amount: 1000, currency: '', amountFormatted: '$1.000' },
+				{ account: 'Activos:Banco', amount: -1000, currency: '', amountFormatted: '-$1.000' },
+			],
+			'*'
+		);
+		// La transaccion formateada debe poder re-parsearse a 1 transaccion valida
+		const txs = LedgerParser.parse(text);
+		expect(txs).toHaveLength(1);
+	});
+
+	it('texto normal no se altera durante el formateo', () => {
+		const text = LedgerParser.formatTransaction(
+			'2024/01/01',
+			'Supermercado',
+			[
+				{ account: 'Gastos:Alimentos', amount: 5000, currency: '', amountFormatted: '$5.000' },
+				{ account: 'Activos:Banco', amount: -5000, currency: '', amountFormatted: '-$5.000' },
+			],
+			'*'
+		);
+		expect(text).toContain('Supermercado');
+		expect(text).toContain('Gastos:Alimentos');
+	});
+});

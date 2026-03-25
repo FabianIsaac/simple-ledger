@@ -14,6 +14,7 @@ function makeSettings(overrides: Partial<PluginSettings> = {}): PluginSettings {
 		archivedAccounts: [],
 		recurringTransactions: [],
 		credits: [],
+		savedFilters: { from: '', to: '', account: '', search: '' },
 		...overrides,
 	};
 }

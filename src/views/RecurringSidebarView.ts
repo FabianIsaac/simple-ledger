@@ -1,24 +1,13 @@
 import { ItemView, WorkspaceLeaf } from 'obsidian';
-import { VIEW_TYPE_RECURRING } from '../constants';
-import { PluginSettings, Transaction, RecurringTransaction, Credit, AddTransactionData } from '../types';
+import { VIEW_TYPE_RECURRING, ACCT } from '../constants';
+import { PluginSettings, Transaction, RecurringTransaction, Credit, AddTransactionData, ISimpleLedgerPlugin } from '../types';
 import { LedgerParser } from '../parser/LedgerParser';
 import { fmtAmount, todayStr } from '../utils/formatting';
 import { isRecurringPaidThisPeriod, getNextDueDate, FREQUENCY_LABELS } from '../utils/recurring';
 import { AddRecurringModal } from '../modals/AddRecurringModal';
 import { CreditWizardModal } from '../modals/CreditWizardModal';
 
-interface Plugin {
-	settings: PluginSettings;
-	transactions: Transaction[];
-	loadTransactions(): Promise<Transaction[]>;
-	addTransaction(data: AddTransactionData): Promise<void>;
-	addCreditPayment(rec: RecurringTransaction): Promise<void>;
-	registerRecurringPayment(rec: RecurringTransaction): Promise<void>;
-	openRecurringNote(rec: RecurringTransaction): Promise<void>;
-	createRecurringNote(rec: RecurringTransaction): Promise<void>;
-	saveSettings(): Promise<void>;
-	renameAccount(oldName: string, newName: string): Promise<void>;
-}
+type Plugin = ISimpleLedgerPlugin;
 
 export class RecurringSidebarView extends ItemView {
 	private plugin: Plugin;
@@ -63,6 +52,10 @@ export class RecurringSidebarView extends ItemView {
 		creditBtn.addEventListener('click', () => {
 			new CreditWizardModal(this.app, this.plugin, null, () => this.render()).open();
 		});
+		const refreshBtn = headerBtns.createEl('button', { text: '↻', cls: 'sl-header-btn', attr: { title: 'Recargar' } });
+		refreshBtn.addEventListener('click', () => {
+			this.plugin.loadTransactions().then(() => this.render());
+		});
 
 		// Summary cards
 		const withStatus = recs.map(rec => ({
@@ -73,10 +66,10 @@ export class RecurringSidebarView extends ItemView {
 		const pendingCount = withStatus.filter(r => !r.isPaid).length;
 		const paidCount = withStatus.filter(r => r.isPaid).length;
 		const totalMonthly = recs
-			.filter(r => r.toAccount.startsWith('Gastos') || r.toAccount.startsWith('Pasivos'))
+			.filter(r => r.toAccount.startsWith(ACCT.expenses) || r.toAccount.startsWith(ACCT.liabilities))
 			.reduce((s, r) => s + (r.frequency === 'monthly' ? r.amount : r.frequency === 'weekly' ? r.amount * 4 : r.amount / 12), 0);
 		const totalIncomeMonthly = recs
-			.filter(r => r.toAccount.startsWith('Activos') && r.fromAccount.startsWith('Ingresos'))
+			.filter(r => r.toAccount.startsWith(ACCT.assets) && r.fromAccount.startsWith(ACCT.income))
 			.reduce((s, r) => s + (r.frequency === 'monthly' ? r.amount : r.frequency === 'weekly' ? r.amount * 4 : r.amount / 12), 0);
 
 		const summaryCards = container.createDiv('sl-rec-sb-summary');
@@ -144,7 +137,7 @@ export class RecurringSidebarView extends ItemView {
 		const settings = this.plugin.settings;
 		for (const item of items) {
 			const { rec, isPaid, nextDue } = item;
-			const isExpense = rec.toAccount.startsWith('Gastos') || rec.toAccount.startsWith('Pasivos');
+			const isExpense = rec.toAccount.startsWith(ACCT.expenses) || rec.toAccount.startsWith(ACCT.liabilities);
 			const isCredit = rec._isCreditPayment;
 
 			const card = list.createDiv(`sl-rec-sb-card ${isPaid ? 'sl-rec-paid' : 'sl-rec-pending'}`);

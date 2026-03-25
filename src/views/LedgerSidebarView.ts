@@ -1,30 +1,31 @@
 import { ItemView, WorkspaceLeaf } from 'obsidian';
-import { VIEW_TYPE_LEDGER } from '../constants';
-import { PluginSettings, Transaction, BalanceTree } from '../types';
+import { VIEW_TYPE_LEDGER, ACCT } from '../constants';
+import { PluginSettings, Transaction, BalanceTree, AddTransactionData, ISimpleLedgerPlugin } from '../types';
 import { LedgerParser } from '../parser/LedgerParser';
 import { fmtAmount } from '../utils/formatting';
 import { AddTransactionModal } from '../modals/AddTransactionModal';
 import { EditTransactionModal } from '../modals/EditTransactionModal';
 import { ManageAccountsModal } from '../modals/ManageAccountsModal';
-import { AddTransactionData } from '../types';
 
-interface Plugin {
-	settings: PluginSettings;
-	transactions: Transaction[];
-	loadTransactions(): Promise<Transaction[]>;
-	addTransaction(data: AddTransactionData): Promise<void>;
-	updateTransaction(oldTx: Transaction, newData: AddTransactionData): Promise<void>;
-	deleteTransaction(tx: Transaction): Promise<void>;
-	renameAccount(oldName: string, newName: string): Promise<void>;
-	saveSettings(): Promise<void>;
+type Plugin = ISimpleLedgerPlugin;
+
+const PAGE_SIZE = 10;
+
+function acctColor(fullName: string, amount: number): string {
+	if (fullName.startsWith(ACCT.expenses)) return 'sl-acct-expense';
+	if (fullName.startsWith(ACCT.liabilities)) return 'sl-acct-liability';
+	if (fullName.startsWith(ACCT.income)) return 'sl-acct-income';
+	return amount >= 0 ? 'sl-positive' : 'sl-negative';
 }
 
 export class LedgerSidebarView extends ItemView {
 	private plugin: Plugin;
+	private txPage: number;
 
 	constructor(leaf: WorkspaceLeaf, plugin: Plugin) {
 		super(leaf);
 		this.plugin = plugin;
+		this.txPage = 0;
 	}
 
 	getViewType(): string { return VIEW_TYPE_LEDGER; }
@@ -42,6 +43,8 @@ export class LedgerSidebarView extends ItemView {
 
 		const settings = this.plugin.settings;
 		const txs = this.plugin.transactions ?? [];
+		const now = new Date();
+		const currentMonth = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}`;
 
 		// Header
 		const header = container.createDiv('sl-sidebar-header');
@@ -72,18 +75,37 @@ export class LedgerSidebarView extends ItemView {
 		// Summary cards
 		const summary = container.createDiv('sl-summary');
 		const totalIncome = Object.entries(balances)
-			.filter(([k]) => k.startsWith('Ingresos'))
+			.filter(([k]) => k.startsWith(ACCT.income))
 			.reduce((s, [, v]) => s + Math.abs(v), 0);
 		const totalExpenses = Object.entries(balances)
-			.filter(([k]) => k.startsWith('Gastos'))
+			.filter(([k]) => k.startsWith(ACCT.expenses))
 			.reduce((s, [, v]) => s + Math.abs(v), 0);
 		const totalAssets = Object.entries(balances)
-			.filter(([k]) => k.startsWith('Activos'))
+			.filter(([k]) => k.startsWith(ACCT.assets))
 			.reduce((s, [, v]) => s + v, 0);
 
 		this._createCard(summary, 'Ingresos', totalIncome, 'sl-card-income');
 		this._createCard(summary, 'Gastos', totalExpenses, 'sl-card-expense');
 		this._createCard(summary, 'Balance', totalAssets, 'sl-card-balance');
+
+		// Monthly summary
+		const monthLabel = now.toLocaleString('es', { month: 'long', year: 'numeric' });
+		const monthTxs = txs.filter(tx => tx.date.startsWith(currentMonth));
+		const monthBalances = LedgerParser.computeBalances(monthTxs);
+		const monthIncome = Object.entries(monthBalances)
+			.filter(([k]) => k.startsWith(ACCT.income))
+			.reduce((s, [, v]) => s + Math.abs(v), 0);
+		const monthExpenses = Object.entries(monthBalances)
+			.filter(([k]) => k.startsWith(ACCT.expenses))
+			.reduce((s, [, v]) => s + Math.abs(v), 0);
+
+		const monthSection = container.createDiv('sl-month-section');
+		monthSection.createDiv({ text: monthLabel, cls: 'sl-month-label' });
+		const monthSummary = monthSection.createDiv('sl-summary sl-summary-month');
+		this._createCard(monthSummary, 'Ingresos mes', monthIncome, 'sl-card-income');
+		this._createCard(monthSummary, 'Gastos mes', monthExpenses, 'sl-card-expense');
+		const monthNet = monthIncome - monthExpenses;
+		this._createCard(monthSummary, 'Neto mes', monthNet, monthNet >= 0 ? 'sl-card-balance' : 'sl-card-expense');
 
 		// Account tree
 		const treeSection = container.createDiv('sl-tree-section');
@@ -95,51 +117,58 @@ export class LedgerSidebarView extends ItemView {
 		});
 		this._renderTree(treeSection, tree, 0);
 
-		// Recent transactions
+		// Recent transactions — paginadas
+		const sorted = [...txs].reverse();
+		const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
+		if (this.txPage >= totalPages) this.txPage = Math.max(0, totalPages - 1);
+
 		const recentSection = container.createDiv('sl-recent-section');
 		const recentHeader = recentSection.createDiv('sl-section-header');
 		recentHeader.createEl('h4', { text: 'Transacciones' });
 		recentHeader.createSpan({ text: `(${txs.length})`, cls: 'sl-tx-count' });
 
-		const showAll = txs.length > 10;
-		let visibleTxs = showAll ? txs.slice(-10).reverse() : [...txs].reverse();
-
 		const txList = recentSection.createDiv('sl-tx-list');
-		const renderTxList = (list: Transaction[]) => {
-			txList.empty();
-			for (const tx of list) {
-				const row = txList.createDiv('sl-tx-row sl-tx-clickable');
-				row.createSpan({ text: tx.date, cls: 'sl-tx-date' });
-				row.createSpan({ text: tx.payee, cls: 'sl-tx-payee' });
-				const mainPosting = tx.postings.find(p => (p.amount ?? 0) > 0) ?? tx.postings[0];
-				if (mainPosting && mainPosting.amount !== null) {
-					row.createSpan({
-						text: fmtAmount(mainPosting.amount, settings),
-						cls: `sl-tx-amount ${(mainPosting.amount ?? 0) >= 0 ? 'sl-positive' : 'sl-negative'}`,
-					});
-				}
-				row.createSpan({ text: '✎', cls: 'sl-tx-edit-icon' });
-				row.addEventListener('click', () => {
-					new EditTransactionModal(
-						this.app, this.plugin, tx,
-						(oldTx, newData) => {
-							this.plugin.updateTransaction(oldTx, newData).then(() => this.render());
-						},
-						(txToDelete) => {
-							this.plugin.deleteTransaction(txToDelete).then(() => this.render());
-						}
-					).open();
+		const pageSlice = sorted.slice(this.txPage * PAGE_SIZE, (this.txPage + 1) * PAGE_SIZE);
+		for (const tx of pageSlice) {
+			const wrapper = txList.createDiv('sl-tx-wrapper');
+			const row = wrapper.createDiv('sl-tx-row sl-tx-clickable');
+			row.createSpan({ text: tx.date, cls: 'sl-tx-date' });
+			row.createSpan({ text: tx.payee, cls: 'sl-tx-payee' });
+			const mainPosting = tx.postings.find(p => (p.amount ?? 0) > 0) ?? tx.postings[0];
+			if (mainPosting && mainPosting.amount !== null) {
+				row.createSpan({
+					text: fmtAmount(mainPosting.amount, settings),
+					cls: `sl-tx-amount ${(mainPosting.amount ?? 0) >= 0 ? 'sl-positive' : 'sl-negative'}`,
 				});
 			}
-		};
-		renderTxList(visibleTxs);
-
-		if (showAll) {
-			const showAllBtn = recentSection.createEl('button', { text: `Ver todas (${txs.length})`, cls: 'sl-show-all-btn' });
-			showAllBtn.addEventListener('click', () => {
-				renderTxList([...txs].reverse());
-				showAllBtn.remove();
+			row.createSpan({ text: '✎', cls: 'sl-tx-edit-icon' });
+			if (tx.notes) {
+				wrapper.createDiv({ text: tx.notes, cls: 'sl-tx-note-text' });
+			}
+			row.addEventListener('click', () => {
+				new EditTransactionModal(
+					this.app, this.plugin, tx,
+					(oldTx, newData) => {
+						this.plugin.updateTransaction(oldTx, newData).then(() => this.render());
+					},
+					(txToDelete) => {
+						this.plugin.deleteTransaction(txToDelete).then(() => this.render());
+					}
+				).open();
 			});
+		}
+
+		if (totalPages > 1) {
+			const pagBar = recentSection.createDiv('sl-pagination');
+			const prevBtn = pagBar.createEl('button', { text: '‹', cls: 'sl-page-btn', attr: { title: 'Anterior' } });
+			prevBtn.disabled = this.txPage === 0;
+			prevBtn.addEventListener('click', () => { this.txPage--; this.render(); });
+
+			pagBar.createSpan({ text: `${this.txPage + 1} / ${totalPages}`, cls: 'sl-page-info' });
+
+			const nextBtn = pagBar.createEl('button', { text: '›', cls: 'sl-page-btn', attr: { title: 'Siguiente' } });
+			nextBtn.disabled = this.txPage >= totalPages - 1;
+			nextBtn.addEventListener('click', () => { this.txPage++; this.render(); });
 		}
 	}
 
@@ -149,19 +178,20 @@ export class LedgerSidebarView extends ItemView {
 		card.createDiv({ text: fmtAmount(amount, this.plugin.settings), cls: 'sl-card-amount' });
 	}
 
-	private _renderTree(container: HTMLElement, tree: BalanceTree, depth: number): void {
+	private _renderTree(container: HTMLElement, tree: BalanceTree, depth: number, prefix = ''): void {
 		const settings = this.plugin.settings;
 		for (const [key, node] of Object.entries(tree)) {
+			const fullName = prefix ? `${prefix}:${key}` : key;
 			const row = container.createDiv('sl-tree-row');
 			row.style.paddingLeft = `${depth * 16 + 8}px`;
 			row.createSpan({ text: key, cls: 'sl-tree-label' });
 			row.createSpan({
 				text: fmtAmount(node._total, settings),
-				cls: `sl-tree-amount ${node._total >= 0 ? 'sl-positive' : 'sl-negative'}`,
+				cls: `sl-tree-amount ${acctColor(fullName, node._total)}`,
 			});
 			const hasChildren = Object.keys(node._children).length > 0;
 			if (hasChildren) {
-				this._renderTree(container, node._children, depth + 1);
+				this._renderTree(container, node._children, depth + 1, fullName);
 			}
 		}
 	}

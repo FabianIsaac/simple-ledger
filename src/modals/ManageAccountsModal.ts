@@ -1,11 +1,7 @@
 import { App, Modal } from 'obsidian';
-import { PluginSettings } from '../types';
+import { PluginSettings, ISimpleLedgerPlugin } from '../types';
 
-interface Plugin {
-	settings: PluginSettings;
-	saveSettings(): Promise<void>;
-	renameAccount(oldName: string, newName: string): Promise<void>;
-}
+type Plugin = ISimpleLedgerPlugin;
 
 export class ManageAccountsModal extends Modal {
 	private plugin: Plugin;

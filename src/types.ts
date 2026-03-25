@@ -9,6 +9,7 @@ export interface Transaction {
 	date: string;
 	status: string;
 	payee: string;
+	notes?: string;
 	postings: Posting[];
 	lineStart: number;
 	lineEnd: number;
@@ -64,6 +65,12 @@ export interface PluginSettings {
 	archivedAccounts: string[];
 	recurringTransactions: RecurringTransaction[];
 	credits: Credit[];
+	savedFilters: {
+		from: string;
+		to: string;
+		account: string;
+		search: string;
+	};
 }
 
 export interface BlockFilterOptions {
@@ -76,6 +83,26 @@ export interface BlockFilterOptions {
 	period: 'month' | 'year';
 }
 
+/**
+ * Interfaz unificada del plugin. Usada por vistas, modales y renderers
+ * como tipo del parámetro `plugin`, en lugar de definir una interfaz local
+ * en cada archivo.
+ */
+export interface ISimpleLedgerPlugin {
+	settings: PluginSettings;
+	transactions: Transaction[];
+	loadTransactions(): Promise<Transaction[]>;
+	saveSettings(): Promise<void>;
+	addTransaction(data: AddTransactionData): Promise<void>;
+	updateTransaction(oldTx: Transaction, newData: AddTransactionData): Promise<void>;
+	deleteTransaction(tx: Transaction): Promise<void>;
+	addCreditPayment(rec: RecurringTransaction): Promise<void>;
+	registerRecurringPayment(rec: RecurringTransaction): Promise<void>;
+	openRecurringNote(rec: RecurringTransaction): Promise<void>;
+	createRecurringNote(rec: RecurringTransaction): Promise<void>;
+	renameAccount(oldName: string, newName: string): Promise<void>;
+}
+
 export interface AddTransactionData {
 	date: string;
 	payee: string;
@@ -83,6 +110,7 @@ export interface AddTransactionData {
 	toAccount: string;
 	fromAccount: string;
 	status: string;
+	notes?: string;
 }
 
 export interface BalanceTree {

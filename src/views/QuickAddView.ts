@@ -1,14 +1,9 @@
 import { ItemView, Notice, WorkspaceLeaf } from 'obsidian';
-import { VIEW_TYPE_QUICK_ADD } from '../constants';
-import { PluginSettings, Transaction, AddTransactionData } from '../types';
+import { VIEW_TYPE_QUICK_ADD, ACCT } from '../constants';
+import { PluginSettings, Transaction, AddTransactionData, ISimpleLedgerPlugin } from '../types';
 import { fmtAmount, todayStr } from '../utils/formatting';
 
-interface Plugin {
-	settings: PluginSettings;
-	transactions: Transaction[];
-	loadTransactions(): Promise<Transaction[]>;
-	addTransaction(data: AddTransactionData): Promise<void>;
-}
+type Plugin = ISimpleLedgerPlugin;
 
 interface RecentItem {
 	date: string;
@@ -160,7 +155,7 @@ export class QuickAddView extends ItemView {
 				const row = recentSection.createDiv('sl-qa-recent-row');
 				row.createSpan({ text: item.date, cls: 'sl-qa-recent-date' });
 				row.createSpan({ text: item.payee, cls: 'sl-qa-recent-payee' });
-				const isExpense = item.toAccount.startsWith('Gastos') || item.toAccount.startsWith('Pasivos');
+				const isExpense = item.toAccount.startsWith(ACCT.expenses) || item.toAccount.startsWith(ACCT.liabilities);
 				row.createSpan({
 					text: fmtAmount(item.amount, settings),
 					cls: `sl-qa-recent-amount ${isExpense ? 'sl-negative' : 'sl-positive'}`,

@@ -511,6 +511,16 @@
 .sl-positive { color: #4caf50; }
 .sl-negative { color: #f44336; }
 
+/* Semantic account colors — árbol de cuentas (colores llenos) */
+.sl-acct-expense   { color: #f44336; }
+.sl-acct-liability { color: #ff9800; }
+.sl-acct-income    { color: #4caf50; }
+
+/* Semantic account colors — etiquetas en transacciones (colores apagados) */
+.sl-label-expense   { color: rgba(244, 67,  54,  0.6); }
+.sl-label-liability { color: rgba(255, 152,  0,  0.6); }
+.sl-label-income    { color: rgba(76,  175, 80,  0.6); }
+
 /* ─── Code Block Tables ──────────────────────────────────────────────────── */
 
 .sl-codeblock {
@@ -620,7 +630,6 @@
 
 .sl-main-title-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
 }
@@ -678,7 +687,6 @@
 .sl-filter-quick {
   display: flex;
   gap: 4px;
-  margin-left: auto;
   align-self: flex-end;
 }
 
@@ -697,6 +705,13 @@
   background: var(--interactive-accent);
   color: white;
   border-color: var(--interactive-accent);
+}
+
+.sl-filter-actions {
+  display: flex;
+  gap: 6px;
+  align-items: flex-end;
+  margin-left: auto;
 }
 
 /* Summary cards (central) */
@@ -839,27 +854,119 @@
   font-size: 1em;
 }
 
-.sl-main-table {
-  font-size: 0.88em;
+/* ─── Main view — transaction list (replaces table) ─────────────────────── */
+
+.sl-tx-list-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
 
-.sl-td-account {
-  font-size: 0.88em;
+.sl-tx-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border-bottom: 1px solid var(--background-modifier-border-hover);
+  transition: background 0.12s;
+}
+
+.sl-tx-item:hover {
+  background: var(--background-modifier-hover);
+}
+
+.sl-tx-item-left {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.sl-tx-item-top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sl-tx-item-date {
+  font-size: 0.8em;
   color: var(--text-muted);
-  max-width: 180px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.sl-tx-item-date-link {
+  cursor: pointer;
+}
+
+.sl-tx-item-date-link:hover {
+  color: var(--interactive-accent);
+  text-decoration: underline;
+}
+
+.sl-tx-item-payee {
+  font-weight: 500;
+  font-size: 0.92em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.sl-td-actions {
-  width: 60px;
-  text-align: right;
+.sl-tx-item-note-icon {
+  font-size: 0.75em;
+  color: var(--text-faint);
+  cursor: help;
+  flex-shrink: 0;
+}
+
+.sl-tx-item-bottom {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78em;
+  color: var(--text-muted);
+  overflow: hidden;
+}
+
+.sl-tx-item-account {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
+
+.sl-tx-item-arrow {
+  flex-shrink: 0;
+  color: var(--text-faint);
+}
+
+.sl-tx-item-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.sl-tx-item-amount {
+  font-size: 0.9em;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-.sl-th-actions {
-  width: 60px;
+.sl-tx-item-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.sl-tx-item:hover .sl-tx-item-actions {
+  opacity: 1;
 }
 
 .sl-row-action-btn {
@@ -867,15 +974,10 @@
   border: none;
   color: var(--text-faint);
   cursor: pointer;
-  font-size: 1em;
+  font-size: 0.95em;
   padding: 2px 5px;
   border-radius: 4px;
-  opacity: 0;
   transition: all 0.15s;
-}
-
-.sl-main-tx-row:hover .sl-row-action-btn {
-  opacity: 1;
 }
 
 .sl-row-action-btn:hover {
@@ -1774,5 +1876,9 @@
   .sl-filter-quick {
     margin-left: 0;
     justify-content: flex-start;
+  }
+
+  .sl-filter-actions {
+    margin-left: 0;
   }
 }

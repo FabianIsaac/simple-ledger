@@ -1,11 +1,8 @@
-import { PluginSettings, Transaction } from '../types';
+import { ISimpleLedgerPlugin } from '../types';
 import { fmtAmount } from '../utils/formatting';
 import { parseBlockOptions, filterTransactions } from '../utils/filters';
 
-interface Plugin {
-	settings: PluginSettings;
-	transactions: Transaction[];
-}
+type Plugin = ISimpleLedgerPlugin;
 
 export function renderRegisterBlock(el: HTMLElement, plugin: Plugin, source: string): void {
 	const settings = plugin.settings;

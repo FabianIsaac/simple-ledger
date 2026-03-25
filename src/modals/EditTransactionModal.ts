@@ -1,11 +1,8 @@
 import { App, Modal, Notice } from 'obsidian';
-import { Transaction, AddTransactionData, PluginSettings } from '../types';
+import { Transaction, AddTransactionData, ISimpleLedgerPlugin } from '../types';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
-interface Plugin {
-	settings: PluginSettings;
-	transactions: Transaction[];
-}
+type Plugin = ISimpleLedgerPlugin;
 
 export class EditTransactionModal extends Modal {
 	private plugin: Plugin;
@@ -18,6 +15,7 @@ export class EditTransactionModal extends Modal {
 	private toAccount: string;
 	private fromAccount: string;
 	private status: string;
+	private notes: string;
 
 	constructor(
 		app: App,
@@ -39,6 +37,7 @@ export class EditTransactionModal extends Modal {
 		this.toAccount = posPosting?.account ?? '';
 		this.fromAccount = negPosting?.account ?? '';
 		this.status = tx.status;
+		this.notes = tx.notes ?? '';
 	}
 
 	onOpen(): void {
@@ -95,6 +94,13 @@ export class EditTransactionModal extends Modal {
 		statusSelect.value = this.status;
 		statusSelect.addEventListener('change', (e) => { this.status = (e.target as HTMLSelectElement).value; });
 
+		// Notes
+		const notesRow = contentEl.createDiv('sl-form-row');
+		notesRow.createEl('label', { text: 'Notas (opcional)' });
+		const notesInput = notesRow.createEl('textarea', { attr: { rows: '2', placeholder: 'Comentario o detalle adicional...' } });
+		notesInput.value = this.notes;
+		notesInput.addEventListener('input', (e) => { this.notes = (e.target as HTMLTextAreaElement).value; });
+
 		// Buttons
 		const btnRow = contentEl.createDiv('sl-form-row sl-edit-btn-row');
 		const deleteBtn = btnRow.createEl('button', { text: 'Eliminar', cls: 'sl-delete-btn' });
@@ -118,6 +124,7 @@ export class EditTransactionModal extends Modal {
 				toAccount: this.toAccount,
 				fromAccount: this.fromAccount,
 				status: this.status,
+				notes: this.notes.trim() || undefined,
 			});
 			this.close();
 		});

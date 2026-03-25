@@ -1,13 +1,9 @@
 import { App, Modal, Notice } from 'obsidian';
-import { RecurringTransaction, PluginSettings } from '../types';
+import { ACCT } from '../constants';
+import { RecurringTransaction, ISimpleLedgerPlugin } from '../types';
 import { generateId, FREQUENCY_LABELS } from '../utils/recurring';
 
-interface Plugin {
-	settings: PluginSettings;
-	saveSettings(): Promise<void>;
-	transactions: import('../types').Transaction[];
-	createRecurringNote(rec: RecurringTransaction): Promise<void>;
-}
+type Plugin = ISimpleLedgerPlugin;
 
 export class AddRecurringModal extends Modal {
 	private plugin: Plugin;
@@ -128,11 +124,11 @@ export class AddRecurringModal extends Modal {
 		let currentDest = 'expenses';
 		let currentSrc = 'assets';
 		if (this.isEditing) {
-			if (this.rec.toAccount.startsWith('Activos') && this.rec.fromAccount.startsWith('Ingresos')) {
+			if (this.rec.toAccount.startsWith(ACCT.assets) && this.rec.fromAccount.startsWith(ACCT.income)) {
 				currentDest = 'assets'; currentSrc = 'income';
-			} else if (this.rec.toAccount.startsWith('Pasivos') && this.rec.fromAccount.startsWith('Activos')) {
+			} else if (this.rec.toAccount.startsWith(ACCT.liabilities) && this.rec.fromAccount.startsWith(ACCT.assets)) {
 				currentDest = 'liabilities'; currentSrc = 'assets';
-			} else if (this.rec.toAccount.startsWith('Gastos') && this.rec.fromAccount.startsWith('Pasivos')) {
+			} else if (this.rec.toAccount.startsWith(ACCT.expenses) && this.rec.fromAccount.startsWith(ACCT.liabilities)) {
 				currentDest = 'expenses'; currentSrc = 'liabilities';
 			}
 		}

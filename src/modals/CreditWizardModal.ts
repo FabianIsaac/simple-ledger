@@ -1,14 +1,11 @@
 import { App, Modal, Notice } from 'obsidian';
-import { Credit, PluginSettings, AddTransactionData } from '../types';
-import { generateId, } from '../utils/recurring';
+import { Credit, ISimpleLedgerPlugin } from '../types';
+import { generateId } from '../utils/recurring';
+import { calculateCreditMonthlyAmounts } from '../utils/creditCalc';
 import { todayStr, fmtAmount } from '../utils/formatting';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
-interface Plugin {
-	settings: PluginSettings;
-	saveSettings(): Promise<void>;
-	addTransaction(data: AddTransactionData): Promise<void>;
-}
+type Plugin = ISimpleLedgerPlugin;
 
 export class CreditWizardModal extends Modal {
 	private plugin: Plugin;
@@ -148,7 +145,8 @@ export class CreditWizardModal extends Modal {
 			if (!totalDebt || totalDebt <= 0) { new Notice('Deuda total invalida'); return; }
 
 			this.credit.interestTotal = totalDebt - principal;
-			this.credit.monthlyPayment = Math.round(totalDebt / this.credit.months);
+			const { monthlyTotal } = calculateCreditMonthlyAmounts(principal, totalDebt, this.credit.months);
+			this.credit.monthlyPayment = monthlyTotal;
 			this.credit.name = this.credit.name.trim();
 
 			this._createCreditEntries();
@@ -171,9 +169,8 @@ export class CreditWizardModal extends Modal {
 
 		if (principal > 0 && totalDebt > 0) {
 			const interest = totalDebt - principal;
-			const monthly = Math.round(totalDebt / months);
-			const interestPerMonth = Math.round(interest / months);
-			const principalPerMonth = Math.round(principal / months);
+			const { monthlyTotal: monthly, monthlyInterest: interestPerMonth, monthlyPrincipal: principalPerMonth } =
+				calculateCreditMonthlyAmounts(principal, totalDebt, months);
 
 			summary.createEl('h4', { text: 'Resumen' });
 			const table = summary.createEl('div', { cls: 'sl-credit-summary-table' });
@@ -228,9 +225,8 @@ export class CreditWizardModal extends Modal {
 			});
 		}
 
-		const monthlyPrincipal = Math.round(c.principal / c.months);
-		const monthlyInterest = Math.round(c.interestTotal / c.months);
-		const monthlyTotal = monthlyPrincipal + monthlyInterest;
+		const { monthlyPrincipal, monthlyInterest, monthlyTotal } =
+			calculateCreditMonthlyAmounts(c.principal, c.principal + c.interestTotal, c.months);
 
 		settings.recurringTransactions = settings.recurringTransactions.filter(r => r.id !== `credit-${c.id}`);
 		settings.recurringTransactions.push({

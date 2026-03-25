@@ -21,7 +21,13 @@ export class LedgerParser {
 				i++;
 				while (i < lines.length && (lines[i] ?? '').match(/^[\s\t]+\S/)) {
 					const postingLine = (lines[i] ?? '').trim();
-					if (postingLine === '' || postingLine.startsWith(';')) { i++; continue; }
+					if (postingLine === '') { i++; continue; }
+					if (postingLine.startsWith(';')) {
+						const noteText = postingLine.slice(1).trim();
+						if (noteText) tx.notes = tx.notes ? `${tx.notes}\n${noteText}` : noteText;
+						i++;
+						continue;
+					}
 					const postingMatch = postingLine.match(
 						/^([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9: _-]+?)(?:\s{2,}|\t+)\s*([-]?\s*[$€£¥]?\s*[-]?[\d,]+\.?\d*)\s*([A-Za-z€$£¥]*)?$/
 					);
@@ -60,21 +66,34 @@ export class LedgerParser {
 		return transactions;
 	}
 
+	/** Removes characters that would break the ledger line-based format. */
+	static sanitizeText(text: string): string {
+		return text.replace(/[\r\n\t]/g, ' ').replace(/  +/g, ' ').trim();
+	}
+
 	static formatTransaction(
 		date: string,
 		payee: string,
 		postings: Posting[],
-		status: string
+		status: string,
+		notes?: string
 	): string {
+		const safePayee = LedgerParser.sanitizeText(payee);
 		const statusStr = status ? ` ${status}` : '';
-		const lines: string[] = [`${date}${statusStr} ${payee}`];
+		const lines: string[] = [`${date}${statusStr} ${safePayee}`];
+		if (notes?.trim()) {
+			for (const noteLine of notes.trim().split('\n')) {
+				lines.push(`    ; ${LedgerParser.sanitizeText(noteLine)}`);
+			}
+		}
 		const maxLen = Math.max(...postings.map(p => p.account.length));
 		for (const p of postings) {
+			const safeAccount = LedgerParser.sanitizeText(p.account);
 			if (p.amount !== null && p.amount !== undefined) {
-				const padding = ' '.repeat(Math.max(2, maxLen - p.account.length + 4));
-				lines.push(`    ${p.account}${padding}${p.amountFormatted ?? p.amount.toFixed(2)}`);
+				const padding = ' '.repeat(Math.max(2, maxLen - safeAccount.length + 4));
+				lines.push(`    ${safeAccount}${padding}${p.amountFormatted ?? p.amount.toFixed(2)}`);
 			} else {
-				lines.push(`    ${p.account}`);
+				lines.push(`    ${safeAccount}`);
 			}
 		}
 		return lines.join('\n');

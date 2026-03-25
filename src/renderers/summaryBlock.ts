@@ -1,12 +1,10 @@
-import { PluginSettings, Transaction } from '../types';
+import { Transaction, ISimpleLedgerPlugin } from '../types';
+import { ACCT } from '../constants';
 import { LedgerParser } from '../parser/LedgerParser';
 import { fmtAmount } from '../utils/formatting';
 import { parseBlockOptions, filterTransactions } from '../utils/filters';
 
-interface Plugin {
-	settings: PluginSettings;
-	transactions: Transaction[];
-}
+type Plugin = ISimpleLedgerPlugin;
 
 export function renderSummaryBlock(el: HTMLElement, plugin: Plugin, source: string): void {
 	const settings = plugin.settings;
@@ -59,10 +57,10 @@ export function renderSummaryBlock(el: HTMLElement, plugin: Plugin, source: stri
 	for (const [periodKey, groupTxs] of Object.entries(groups).sort()) {
 		const balances = LedgerParser.computeBalances(groupTxs);
 		const income = Object.entries(balances)
-			.filter(([k]) => k.startsWith('Ingresos'))
+			.filter(([k]) => k.startsWith(ACCT.income))
 			.reduce((s, [, v]) => s + Math.abs(v), 0);
 		const expenses = Object.entries(balances)
-			.filter(([k]) => k.startsWith('Gastos'))
+			.filter(([k]) => k.startsWith(ACCT.expenses))
 			.reduce((s, [, v]) => s + Math.abs(v), 0);
 		const net = income - expenses;
 

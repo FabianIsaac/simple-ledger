@@ -4,6 +4,7 @@ import { PluginSettings, Transaction, AddTransactionData, RecurringTransaction }
 import { LedgerParser } from './parser/LedgerParser';
 import { fmtAmount, fmtAmountRaw, todayStr } from './utils/formatting';
 import { FREQUENCY_LABELS } from './utils/recurring';
+import { renameAccountInRecurrings } from './utils/accounts';
 import { LedgerSidebarView } from './views/LedgerSidebarView';
 import { LedgerMainView } from './views/LedgerMainView';
 import { RecurringSidebarView } from './views/RecurringSidebarView';
@@ -39,7 +40,7 @@ export default class SimpleLedgerPlugin extends Plugin {
 		// Commands
 		this.addCommand({
 			id: 'add-transaction',
-			name: 'Agregar transaccion',
+			name: 'Nueva transaccion',
 			callback: () => {
 				new AddTransactionModal(this.app, this, (data) => {
 					this.addTransaction(data);
@@ -88,7 +89,7 @@ export default class SimpleLedgerPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'open-quick-add',
-			name: 'Agregar movimientos',
+			name: 'Abrir panel de nuevos movimientos',
 			callback: () => { this.activateQuickAddView(); },
 		});
 
@@ -97,6 +98,59 @@ export default class SimpleLedgerPlugin extends Plugin {
 			name: 'Nuevo credito',
 			callback: () => {
 				new CreditWizardModal(this.app, this, null, () => this._refreshViews()).open();
+			},
+		});
+
+		// Quick-filter commands
+		this.addCommand({
+			id: 'filter-this-month',
+			name: 'Filtrar: mes actual',
+			callback: () => {
+				const now = new Date();
+				const y = now.getFullYear();
+				const m = String(now.getMonth() + 1).padStart(2, '0');
+				const from = `${y}/${m}/01`;
+				const lastDay = new Date(y, now.getMonth() + 1, 0).getDate();
+				const to = `${y}/${m}/${lastDay}`;
+				this._applyMainViewFilters({ from, to });
+				this.activateMainView();
+			},
+		});
+
+		this.addCommand({
+			id: 'filter-this-year',
+			name: 'Filtrar: año actual',
+			callback: () => {
+				const y = new Date().getFullYear();
+				this._applyMainViewFilters({ from: `${y}/01/01`, to: `${y}/12/31` });
+				this.activateMainView();
+			},
+		});
+
+		this.addCommand({
+			id: 'filter-expenses',
+			name: 'Filtrar: solo gastos',
+			callback: () => {
+				this._applyMainViewFilters({ account: 'Gastos' });
+				this.activateMainView();
+			},
+		});
+
+		this.addCommand({
+			id: 'filter-income',
+			name: 'Filtrar: solo ingresos',
+			callback: () => {
+				this._applyMainViewFilters({ account: 'Ingresos' });
+				this.activateMainView();
+			},
+		});
+
+		this.addCommand({
+			id: 'filter-clear',
+			name: 'Limpiar filtros',
+			callback: () => {
+				this._applyMainViewFilters({ from: '', to: '', account: '', search: '' });
+				this.activateMainView();
 			},
 		});
 
@@ -157,9 +211,18 @@ export default class SimpleLedgerPlugin extends Plugin {
 		this.app.workspace.onLayoutReady(() => {
 			this.loadTransactions();
 		});
+
+		// Auto-recarga cuando el archivo .ledger cambia (sincronización entre dispositivos)
+		this.registerEvent(
+			this.app.vault.on('modify', (file) => {
+				if (file.path === this.settings.ledgerFile) {
+					this.loadTransactions().then(() => this._refreshViews());
+				}
+			})
+		);
 	}
 
-	onunload(): void {}
+	onunload(): void { }
 
 	async loadSettings(): Promise<void> {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<PluginSettings>);
@@ -174,6 +237,7 @@ export default class SimpleLedgerPlugin extends Plugin {
 		if (!this.settings.archivedAccounts) this.settings.archivedAccounts = [];
 		if (!this.settings.recurringTransactions) this.settings.recurringTransactions = [];
 		if (!this.settings.credits) this.settings.credits = [];
+		if (!this.settings.savedFilters) this.settings.savedFilters = { from: '', to: '', account: '', search: '' };
 	}
 
 	async saveSettings(): Promise<void> {
@@ -181,19 +245,36 @@ export default class SimpleLedgerPlugin extends Plugin {
 	}
 
 	async loadTransactions(): Promise<Transaction[]> {
-		const filePath = this.settings.ledgerFile;
-		const file = this.app.vault.getAbstractFileByPath(filePath);
-		if (file && file instanceof TFile) {
-			const content = await this.app.vault.read(file);
-			this.transactions = LedgerParser.parse(content);
-		} else {
+		try {
+			const filePath = this.settings.ledgerFile;
+			const file = this.app.vault.getAbstractFileByPath(filePath);
+			if (file && file instanceof TFile) {
+				const content = await this.app.vault.read(file);
+				this.transactions = LedgerParser.parse(content);
+			} else {
+				this.transactions = [];
+			}
+		} catch (e) {
+			console.error('Simple Ledger: error al leer transacciones', e);
 			this.transactions = [];
+			new Notice('Error al leer el archivo ledger. Revisa la consola para más detalles.');
 		}
 		return this.transactions;
 	}
 
 	async addTransaction(data: AddTransactionData): Promise<void> {
-		const { date, payee, amount, toAccount, fromAccount, status } = data;
+		const { date, payee, amount, toAccount, fromAccount, status, notes } = data;
+
+		// Detección de duplicados: misma fecha, mismo payee, mismo monto
+		const duplicate = this.transactions.find(tx =>
+			tx.date === date &&
+			tx.payee.toLowerCase() === payee.toLowerCase() &&
+			tx.postings.some(p => p.account === toAccount && Math.abs((p.amount ?? 0) - amount) < 0.01)
+		);
+		if (duplicate) {
+			new Notice(`⚠ Posible duplicado: ya existe "${payee}" el ${date} por el mismo monto.`);
+		}
+
 		const settings = this.settings;
 		const amtFormatted = fmtAmountRaw(amount, settings);
 		const negFormatted = fmtAmountRaw(-amount, settings);
@@ -201,16 +282,22 @@ export default class SimpleLedgerPlugin extends Plugin {
 		const txText = LedgerParser.formatTransaction(date, payee, [
 			{ account: toAccount, amount: amount, currency: '', amountFormatted: amtFormatted },
 			{ account: fromAccount, amount: -amount, currency: '', amountFormatted: negFormatted },
-		], status);
+		], status, notes);
 
-		const filePath = settings.ledgerFile;
-		const file = this.app.vault.getAbstractFileByPath(filePath);
-		if (!file) {
-			const header = `; Simple Ledger - Archivo de transacciones\n; Formato compatible con ledger-cli\n; Creado: ${todayStr()}\n\n`;
-			await this.app.vault.create(filePath, header + txText + '\n');
-		} else if (file instanceof TFile) {
-			const content = await this.app.vault.read(file);
-			await this.app.vault.modify(file, content + '\n' + txText + '\n');
+		try {
+			const filePath = settings.ledgerFile;
+			const file = this.app.vault.getAbstractFileByPath(filePath);
+			if (!file) {
+				const header = `; Simple Ledger - Archivo de transacciones\n; Formato compatible con ledger-cli\n; Creado: ${todayStr()}\n\n`;
+				await this.app.vault.create(filePath, header + txText + '\n');
+			} else if (file instanceof TFile) {
+				const content = await this.app.vault.read(file);
+				await this.app.vault.modify(file, content + '\n' + txText + '\n');
+			}
+		} catch (e) {
+			console.error('Simple Ledger: error al guardar transaccion', e);
+			new Notice('Error al guardar la transaccion. Revisa la consola para más detalles.');
+			return;
 		}
 
 		await this.loadTransactions();
@@ -257,7 +344,7 @@ export default class SimpleLedgerPlugin extends Plugin {
 	}
 
 	async updateTransaction(oldTx: Transaction, newData: AddTransactionData): Promise<void> {
-		const { date, payee, amount, toAccount, fromAccount, status } = newData;
+		const { date, payee, amount, toAccount, fromAccount, status, notes } = newData;
 		const settings = this.settings;
 		const amtFormatted = fmtAmountRaw(amount, settings);
 		const negFormatted = fmtAmountRaw(-amount, settings);
@@ -265,57 +352,86 @@ export default class SimpleLedgerPlugin extends Plugin {
 		const newTxText = LedgerParser.formatTransaction(date, payee, [
 			{ account: toAccount, amount: amount, currency: '', amountFormatted: amtFormatted },
 			{ account: fromAccount, amount: -amount, currency: '', amountFormatted: negFormatted },
-		], status);
+		], status, notes);
 
-		const filePath = settings.ledgerFile;
-		const file = this.app.vault.getAbstractFileByPath(filePath);
-		if (!file || !(file instanceof TFile)) return;
+		try {
+			const filePath = settings.ledgerFile;
+			const file = this.app.vault.getAbstractFileByPath(filePath);
+			if (!file || !(file instanceof TFile)) return;
 
-		const content = await this.app.vault.read(file);
-		const lines = content.split('\n');
-		const before = lines.slice(0, oldTx.lineStart);
-		const after = lines.slice(oldTx.lineEnd + 1);
-		const newContent = [...before, newTxText, ...after].join('\n');
+			const content = await this.app.vault.read(file);
+			const lines = content.split('\n');
+			const before = lines.slice(0, oldTx.lineStart);
+			const after = lines.slice(oldTx.lineEnd + 1);
+			const newContent = [...before, newTxText, ...after].join('\n');
 
-		await this.app.vault.modify(file, newContent);
+			await this.app.vault.modify(file, newContent);
+		} catch (e) {
+			console.error('Simple Ledger: error al actualizar transaccion', e);
+			new Notice('Error al actualizar la transaccion. Revisa la consola para más detalles.');
+			return;
+		}
+
 		await this.loadTransactions();
 		this._refreshViews();
 		new Notice(`Transaccion actualizada: ${payee}`);
 	}
 
 	async deleteTransaction(tx: Transaction): Promise<void> {
-		const filePath = this.settings.ledgerFile;
-		const file = this.app.vault.getAbstractFileByPath(filePath);
-		if (!file || !(file instanceof TFile)) return;
+		try {
+			const filePath = this.settings.ledgerFile;
+			const file = this.app.vault.getAbstractFileByPath(filePath);
+			if (!file || !(file instanceof TFile)) return;
 
-		const content = await this.app.vault.read(file);
-		const lines = content.split('\n');
+			const content = await this.app.vault.read(file);
+			const lines = content.split('\n');
 
-		let endLine = tx.lineEnd;
-		if (endLine + 1 < lines.length && (lines[endLine + 1] ?? '').trim() === '') {
-			endLine++;
+			let endLine = tx.lineEnd;
+			if (endLine + 1 < lines.length && (lines[endLine + 1] ?? '').trim() === '') {
+				endLine++;
+			}
+			const before = lines.slice(0, tx.lineStart);
+			const after = lines.slice(endLine + 1);
+			const newContent = [...before, ...after].join('\n');
+
+			await this.app.vault.modify(file, newContent);
+		} catch (e) {
+			console.error('Simple Ledger: error al eliminar transaccion', e);
+			new Notice('Error al eliminar la transaccion. Revisa la consola para más detalles.');
+			return;
 		}
-		const before = lines.slice(0, tx.lineStart);
-		const after = lines.slice(endLine + 1);
-		const newContent = [...before, ...after].join('\n');
 
-		await this.app.vault.modify(file, newContent);
 		await this.loadTransactions();
 		this._refreshViews();
 		new Notice(`Transaccion eliminada: ${tx.payee}`);
 	}
 
 	async renameAccount(oldName: string, newName: string): Promise<void> {
-		const filePath = this.settings.ledgerFile;
-		const file = this.app.vault.getAbstractFileByPath(filePath);
-		if (!file || !(file instanceof TFile)) return;
+		try {
+			const filePath = this.settings.ledgerFile;
+			const file = this.app.vault.getAbstractFileByPath(filePath);
+			if (!file || !(file instanceof TFile)) return;
 
-		let content = await this.app.vault.read(file);
-		const escaped = oldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-		const regex = new RegExp(`(^\\s+)${escaped}(\\s|$)`, 'gm');
-		content = content.replace(regex, `$1${newName}$2`);
+			let content = await this.app.vault.read(file);
+			const escaped = oldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+			const regex = new RegExp(`(^\\s+)${escaped}(\\s|$)`, 'gm');
+			content = content.replace(regex, `$1${newName}$2`);
 
-		await this.app.vault.modify(file, content);
+			await this.app.vault.modify(file, content);
+		} catch (e) {
+			console.error('Simple Ledger: error al renombrar cuenta', e);
+			new Notice('Error al renombrar la cuenta. Revisa la consola para más detalles.');
+			return;
+		}
+
+		// Actualizar referencias en transacciones recurrentes
+		this.settings.recurringTransactions = renameAccountInRecurrings(
+			this.settings.recurringTransactions,
+			oldName,
+			newName
+		);
+		await this.saveSettings();
+
 		await this.loadTransactions();
 		this._refreshViews();
 		new Notice(`Cuenta renombrada: ${oldName} → ${newName}`);
@@ -345,8 +461,8 @@ export default class SimpleLedgerPlugin extends Plugin {
 		const dayLabel = rec.frequency === 'weekly'
 			? `día ${rec.dayOfWeek ?? 1} de la semana`
 			: rec.frequency === 'yearly'
-			? `mes ${rec.monthOfYear ?? 1}`
-			: `día ${rec.dayOfMonth ?? 1} del mes`;
+				? `mes ${rec.monthOfYear ?? 1}`
+				: `día ${rec.dayOfMonth ?? 1} del mes`;
 
 		let content = `# ${rec.payee}\n\n`;
 		content += `**Monto:** ${fmtAmount(rec.amount, this.settings)}\n`;
@@ -403,6 +519,12 @@ export default class SimpleLedgerPlugin extends Plugin {
 			await this.createRecurringNote(rec);
 		}
 		await this.app.workspace.openLinkText(path, '', false);
+	}
+
+	_applyMainViewFilters(partial: { from?: string; to?: string; account?: string; search?: string }): void {
+		for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_LEDGER_MAIN)) {
+			if (leaf.view instanceof LedgerMainView) leaf.view.applyFilters(partial);
+		}
 	}
 
 	_refreshViews(): void {
