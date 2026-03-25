@@ -38,6 +38,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 		liabilities: ['Pasivos:TarjetaCredito', 'Pasivos:Prestamo'],
 	},
 	archivedAccounts: [],
+	excludedFromBalance: [],
 	recurringTransactions: [],
 	credits: [],
 	savedFilters: { from: '', to: '', account: '', search: '' },

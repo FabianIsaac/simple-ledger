@@ -5,9 +5,9 @@ import { LedgerParser } from '../parser/LedgerParser';
 import { fmtAmount, todayStr } from '../utils/formatting';
 import { isRecurringPaidThisPeriod, getNextDueDate, FREQUENCY_LABELS } from '../utils/recurring';
 import { AddTransactionModal } from '../modals/AddTransactionModal';
+import { ImportTransactionsModal } from '../modals/ImportTransactionsModal';
 import { EditTransactionModal } from '../modals/EditTransactionModal';
 import { ConfirmDeleteModal } from '../modals/ConfirmDeleteModal';
-import { ManageAccountsModal } from '../modals/ManageAccountsModal';
 import { AddRecurringModal } from '../modals/AddRecurringModal';
 import { CreditWizardModal } from '../modals/CreditWizardModal';
 
@@ -39,15 +39,17 @@ function acctLabelColor(account: string): string {
 export class LedgerMainView extends ItemView {
 	private plugin: Plugin;
 	private filters: Filters;
-	private showArchived: boolean;
 	private collapsedAccounts: Set<string>;
+	private manageOpen: boolean;
+	private manageTab: 'expenses' | 'income' | 'assets' | 'liabilities';
 
 	constructor(leaf: WorkspaceLeaf, plugin: Plugin) {
 		super(leaf);
 		this.plugin = plugin;
 		this.filters = { from: '', to: '', account: '', search: '' };
-		this.showArchived = false;
 		this.collapsedAccounts = new Set();
+		this.manageOpen = false;
+		this.manageTab = 'expenses';
 	}
 
 	getViewType(): string { return VIEW_TYPE_LEDGER_MAIN; }
@@ -90,14 +92,36 @@ export class LedgerMainView extends ItemView {
 		const titleRow = header.createDiv('sl-main-title-row');
 		titleRow.createEl('h2', { text: 'Simple Ledger' });
 
-		this._renderFilters(header, allTxs, txs);
+		// Action buttons in title row
+		const titleActions = titleRow.createDiv('sl-title-actions');
+		const addBtn = titleActions.createEl('button', { text: '+ Nueva', cls: 'mod-cta sl-main-add-btn' });
+		addBtn.addEventListener('click', () => {
+			new AddTransactionModal(this.app, this.plugin, (data) => {
+				this.plugin.addTransaction(data).then(() => this.render());
+			}).open();
+		});
+		const importBtn = titleActions.createEl('button', { text: '⬆ Importar', cls: 'sl-header-btn', attr: { title: 'Importar transacciones' } });
+		importBtn.addEventListener('click', () => {
+			new ImportTransactionsModal(this.app, this.plugin, () => this.render()).open();
+		});
+		const refreshBtn = titleActions.createEl('button', { text: '↻', cls: 'sl-header-btn', attr: { title: 'Recargar' } });
+		refreshBtn.addEventListener('click', () => {
+			this.plugin.loadTransactions().then(() => this.render());
+		});
+		const csvBtn = titleActions.createEl('button', { text: '⬇ CSV', cls: 'sl-header-btn', attr: { title: 'Exportar a CSV' } });
+		csvBtn.addEventListener('click', () => this._exportCSV(txs));
+
+		this._renderFilters(header, allTxs);
 
 		// Summary cards
 		const balances = LedgerParser.computeBalances(txs);
-		const totalIncome = Object.entries(balances).filter(([k]) => k.startsWith(ACCT.income)).reduce((s, [, v]) => s + Math.abs(v), 0);
-		const totalExpenses = Object.entries(balances).filter(([k]) => k.startsWith(ACCT.expenses)).reduce((s, [, v]) => s + Math.abs(v), 0);
-		const totalAssets = Object.entries(balances).filter(([k]) => k.startsWith(ACCT.assets)).reduce((s, [, v]) => s + v, 0);
-		const totalLiabilities = Object.entries(balances).filter(([k]) => k.startsWith(ACCT.liabilities)).reduce((s, [, v]) => s + Math.abs(v), 0);
+		const excluded = settings.excludedFromBalance ?? [];
+		const isExcluded = (acct: string) => excluded.some(ex => acct === ex || acct.startsWith(ex + ':'));
+		const liquid = Object.fromEntries(Object.entries(balances).filter(([k]) => !isExcluded(k)));
+		const totalIncome = Object.entries(liquid).filter(([k]) => k.startsWith(ACCT.income)).reduce((s, [, v]) => s + Math.abs(v), 0);
+		const totalExpenses = Object.entries(liquid).filter(([k]) => k.startsWith(ACCT.expenses)).reduce((s, [, v]) => s + Math.abs(v), 0);
+		const totalAssets = Object.entries(liquid).filter(([k]) => k.startsWith(ACCT.assets)).reduce((s, [, v]) => s + v, 0);
+		const totalLiabilities = Object.entries(liquid).filter(([k]) => k.startsWith(ACCT.liabilities)).reduce((s, [, v]) => s + Math.abs(v), 0);
 
 		const cards = container.createDiv('sl-main-cards');
 		this._card(cards, 'Ingresos', totalIncome, 'sl-card-income');
@@ -127,7 +151,7 @@ export class LedgerMainView extends ItemView {
 		this.render();
 	}
 
-	private _renderFilters(parent: HTMLElement, allTxs: Transaction[], filteredTxs: Transaction[]): void {
+	private _renderFilters(parent: HTMLElement, allTxs: Transaction[]): void {
 		const bar = parent.createDiv('sl-filter-bar');
 		const dateGroup = bar.createDiv('sl-filter-group');
 		dateGroup.createEl('label', { text: 'Desde' });
@@ -200,19 +224,6 @@ export class LedgerMainView extends ItemView {
 			btn.addEventListener('click', () => { q.fn(); this._saveAndRender(); });
 		}
 
-		const actionGroup = bar.createDiv('sl-filter-actions');
-		const addBtn = actionGroup.createEl('button', { text: '+ Nueva', cls: 'mod-cta sl-main-add-btn' });
-		addBtn.addEventListener('click', () => {
-			new AddTransactionModal(this.app, this.plugin, (data) => {
-				this.plugin.addTransaction(data).then(() => this.render());
-			}).open();
-		});
-		const refreshBtn = actionGroup.createEl('button', { text: '↻', cls: 'sl-header-btn', attr: { title: 'Recargar' } });
-		refreshBtn.addEventListener('click', () => {
-			this.plugin.loadTransactions().then(() => this.render());
-		});
-		const csvBtn = actionGroup.createEl('button', { text: '⬇ CSV', cls: 'sl-header-btn', attr: { title: 'Exportar a CSV' } });
-		csvBtn.addEventListener('click', () => this._exportCSV(filteredTxs));
 	}
 
 	private _renderChart(parent: HTMLElement, allTxs: Transaction[], filteredTxs: Transaction[]): void {
@@ -588,76 +599,36 @@ export class LedgerMainView extends ItemView {
 		const section = parent.createDiv('sl-main-accounts');
 		const accHeader = section.createDiv('sl-section-header');
 		accHeader.createEl('h3', { text: 'Cuentas' });
-		const gearBtn = accHeader.createEl('button', { text: '⚙', cls: 'sl-gear-btn', attr: { title: 'Gestionar cuentas' } });
+		const gearBtn = accHeader.createEl('button', {
+			text: this.manageOpen ? '✕' : '⚙',
+			cls: 'sl-gear-btn',
+			attr: { title: this.manageOpen ? 'Cerrar' : 'Gestionar cuentas' },
+		});
 		gearBtn.addEventListener('click', () => {
-			new ManageAccountsModal(this.app, this.plugin).open();
+			this.manageOpen = !this.manageOpen;
+			this.render();
 		});
 
-		const settings = this.plugin.settings;
-		const archived = settings.archivedAccounts ?? [];
+		if (this.manageOpen) {
+			this._renderManagePanel(section);
+			return;
+		}
+
+		const excl = (this.plugin.settings.excludedFromBalance ?? []) as string[];
+		const isExcluded = (acct: string) => excl.some((ex: string) => acct === ex || acct.startsWith(ex + ':'));
 		const tree = LedgerParser.computeBalanceTree(balances);
-
-		const allAccounts = new Set<string>();
-		for (const cat of Object.values(settings.defaultAccounts)) {
-			for (const a of cat) allAccounts.add(a);
-		}
-		for (const acct of Object.keys(balances)) allAccounts.add(acct);
-
-		const activeSection = section.createDiv('sl-acct-group');
-		activeSection.createEl('h4', { text: 'Activas' });
-		this._renderAccountTree(activeSection, tree, 0, '', archived, false);
-
-		const archivedAccts = archived.filter(a => allAccounts.has(a) || balances[a] !== undefined);
-		if (archivedAccts.length > 0 || this.showArchived) {
-			const archSection = section.createDiv('sl-acct-group');
-			const archHeader = archSection.createDiv('sl-section-header');
-			archHeader.createEl('h4', { text: `Archivadas (${archivedAccts.length})` });
-			const toggleBtn = archHeader.createEl('button', {
-				text: this.showArchived ? 'Ocultar' : 'Mostrar',
-				cls: 'sl-quick-btn',
-			});
-			toggleBtn.addEventListener('click', () => {
-				this.showArchived = !this.showArchived;
-				this.render();
-			});
-
-			if (this.showArchived) {
-				for (const acct of archivedAccts.sort()) {
-					const row = archSection.createDiv('sl-acct-row sl-acct-archived');
-					row.createSpan({ text: acct, cls: 'sl-acct-name' });
-					const bal = balances[acct] ?? 0;
-					row.createSpan({
-						text: fmtAmount(bal, settings),
-						cls: `sl-acct-bal ${acctColor(acct, bal)}`,
-					});
-					const unarchBtn = row.createEl('button', { text: 'Restaurar', cls: 'sl-quick-btn', attr: { title: 'Desarchivar' } });
-					unarchBtn.addEventListener('click', () => {
-						this.plugin.settings.archivedAccounts = archived.filter(x => x !== acct);
-						this.plugin.saveSettings();
-						this.render();
-					});
-				}
-			}
-		}
+		this._renderAccountTree(section, tree, 0, '', isExcluded);
 	}
 
-	private _renderAccountTree(
-		container: HTMLElement,
-		tree: BalanceTree,
-		depth: number,
-		prefix: string,
-		archived: string[],
-		isArchived: boolean
-	): void {
+	private _renderAccountTree(container: HTMLElement, tree: BalanceTree, depth: number, prefix: string, isExcluded: (a: string) => boolean = () => false): void {
 		const settings = this.plugin.settings;
 		for (const [key, node] of Object.entries(tree)) {
 			const fullName = prefix ? `${prefix}:${key}` : key;
-			if (archived.includes(fullName) && !isArchived) continue;
-
 			const hasChildren = Object.keys(node._children).length > 0;
 			const isCollapsed = this.collapsedAccounts.has(fullName);
+			const excluded = isExcluded(fullName);
 
-			const row = container.createDiv('sl-acct-row');
+			const row = container.createDiv(`sl-acct-row${excluded ? ' sl-acct-excluded' : ''}`);
 			row.style.paddingLeft = `${depth * 16 + 8}px`;
 
 			if (hasChildren) {
@@ -686,20 +657,117 @@ export class LedgerMainView extends ItemView {
 				cls: `sl-acct-bal ${acctColor(fullName, node._total)}`,
 			});
 
-			const archBtn = row.createEl('button', { text: '📦', cls: 'sl-archive-btn', attr: { title: 'Archivar cuenta' } });
-			archBtn.addEventListener('click', (e) => {
-				e.stopPropagation();
-				if (!this.plugin.settings.archivedAccounts.includes(fullName)) {
-					this.plugin.settings.archivedAccounts.push(fullName);
-					this.plugin.saveSettings();
-					this.render();
-				}
-			});
-
 			if (hasChildren && !isCollapsed) {
-				this._renderAccountTree(container, node._children, depth + 1, fullName, archived, isArchived);
+				this._renderAccountTree(container, node._children, depth + 1, fullName, isExcluded);
 			}
 		}
+	}
+
+	private _renderManagePanel(parent: HTMLElement): void {
+		const panel = parent.createDiv('sl-manage-panel');
+		const settings = this.plugin.settings;
+
+		const categories: { key: 'expenses' | 'income' | 'assets' | 'liabilities'; label: string; prefix: string }[] = [
+			{ key: 'expenses',    label: 'Gastos',    prefix: 'Gastos' },
+			{ key: 'income',      label: 'Ingresos',  prefix: 'Ingresos' },
+			{ key: 'assets',      label: 'Activos',   prefix: 'Activos' },
+			{ key: 'liabilities', label: 'Pasivos',   prefix: 'Pasivos' },
+		];
+
+		// Tabs
+		const tabs = panel.createDiv('sl-manage-tabs');
+		for (const cat of categories) {
+			const tab = tabs.createEl('button', { text: cat.label, cls: `sl-manage-tab${this.manageTab === cat.key ? ' sl-manage-tab-active' : ''}` });
+			tab.addEventListener('click', () => {
+				this.manageTab = cat.key;
+				this.render();
+			});
+		}
+
+		const currentCat = categories.find(c => c.key === this.manageTab)!;
+		const accounts = settings.defaultAccounts[this.manageTab];
+		const sorted = [...accounts].sort();
+
+		// Account list
+		const excluded = settings.excludedFromBalance ?? [];
+		const list = panel.createDiv('sl-manage-list');
+		for (const acct of sorted) {
+			const isExcl = excluded.includes(acct);
+			const row = list.createDiv('sl-manage-acct-row');
+			const nameSpan = row.createSpan({ text: acct, cls: `sl-manage-acct-name${isExcl ? ' sl-manage-acct-excl' : ''}` });
+
+			const exclBtn = row.createEl('button', {
+				text: isExcl ? '⊘' : '◎',
+				cls: 'sl-row-action-btn',
+				attr: { title: isExcl ? 'Incluir en balance' : 'Excluir del balance' },
+			});
+			exclBtn.addEventListener('click', () => {
+				if (isExcl) {
+					settings.excludedFromBalance = excluded.filter(e => e !== acct);
+				} else {
+					excluded.push(acct);
+				}
+				this.plugin.saveSettings();
+				this.render();
+			});
+
+			const editBtn = row.createEl('button', { text: '✎', cls: 'sl-row-action-btn', attr: { title: 'Renombrar' } });
+			editBtn.addEventListener('click', () => {
+				const input = document.createElement('input');
+				input.type = 'text';
+				input.value = acct;
+				input.className = 'sl-rename-input';
+				nameSpan.replaceWith(input);
+				input.focus();
+				input.select();
+				const save = () => {
+					const newName = input.value.trim();
+					if (newName && newName !== acct) {
+						const idx = accounts.indexOf(acct);
+						if (idx !== -1) accounts[idx] = newName;
+						this.plugin.renameAccount(acct, newName);
+					} else {
+						this.plugin.saveSettings();
+					}
+					this.render();
+				};
+				input.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') this.render(); });
+				input.addEventListener('blur', save);
+			});
+
+			const delBtn = row.createEl('button', { text: '×', cls: 'sl-row-action-btn sl-row-del', attr: { title: 'Eliminar' } });
+			delBtn.addEventListener('click', () => {
+				settings.defaultAccounts[this.manageTab] = accounts.filter(a => a !== acct);
+				this.plugin.saveSettings();
+				this.render();
+			});
+		}
+
+		// Add row
+		const addRow = panel.createDiv('sl-manage-add-row');
+		const prefixSelect = addRow.createEl('select', { cls: 'sl-manage-prefix-select' });
+		for (const cat of categories) {
+			const opt = prefixSelect.createEl('option', { value: cat.prefix, text: cat.prefix });
+			if (cat.key === this.manageTab) opt.selected = true;
+		}
+		addRow.createSpan({ text: ':', cls: 'sl-manage-sep' });
+		const nameInput = addRow.createEl('input', { type: 'text', placeholder: 'NuevaCuenta', cls: 'sl-manage-name-input' });
+		const addBtn = addRow.createEl('button', { text: '+ Agregar', cls: 'sl-quick-btn' });
+		addBtn.addEventListener('click', () => {
+			const sub = nameInput.value.trim();
+			if (!sub) return;
+			const full = `${prefixSelect.value}:${sub}`;
+			// Add to the category matching the prefix
+			const targetCat = categories.find(c => c.prefix === prefixSelect.value);
+			if (!targetCat) return;
+			const list = settings.defaultAccounts[targetCat.key];
+			if (!list.includes(full)) {
+				list.push(full);
+				this.plugin.saveSettings();
+			}
+			this.render();
+		});
+		nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addBtn.click(); });
 	}
 
 	private _card(parent: HTMLElement, title: string, amount: number, cls: string): void {

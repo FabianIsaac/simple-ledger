@@ -63,6 +63,7 @@ export interface PluginSettings {
 	recurringNotesFolder: string;
 	defaultAccounts: DefaultAccounts;
 	archivedAccounts: string[];
+	excludedFromBalance: string[];
 	recurringTransactions: RecurringTransaction[];
 	credits: Credit[];
 	savedFilters: {

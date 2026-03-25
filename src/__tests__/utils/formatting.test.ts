@@ -12,6 +12,7 @@ function makeSettings(overrides: Partial<PluginSettings> = {}): PluginSettings {
 		recurringNotesFolder: 'Finanzas/Recurrentes',
 		defaultAccounts: { expenses: [], income: [], assets: [], liabilities: [] },
 		archivedAccounts: [],
+		excludedFromBalance: [],
 		recurringTransactions: [],
 		credits: [],
 		savedFilters: { from: '', to: '', account: '', search: '' },

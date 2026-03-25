@@ -73,14 +73,17 @@ export class LedgerSidebarView extends ItemView {
 		}
 
 		// Summary cards
+		const excluded = settings.excludedFromBalance ?? [];
+		const isExcluded = (acct: string) => excluded.some(ex => acct === ex || acct.startsWith(ex + ':'));
+		const liquid = Object.fromEntries(Object.entries(balances).filter(([k]) => !isExcluded(k)));
 		const summary = container.createDiv('sl-summary');
-		const totalIncome = Object.entries(balances)
+		const totalIncome = Object.entries(liquid)
 			.filter(([k]) => k.startsWith(ACCT.income))
 			.reduce((s, [, v]) => s + Math.abs(v), 0);
-		const totalExpenses = Object.entries(balances)
+		const totalExpenses = Object.entries(liquid)
 			.filter(([k]) => k.startsWith(ACCT.expenses))
 			.reduce((s, [, v]) => s + Math.abs(v), 0);
-		const totalAssets = Object.entries(balances)
+		const totalAssets = Object.entries(liquid)
 			.filter(([k]) => k.startsWith(ACCT.assets))
 			.reduce((s, [, v]) => s + v, 0);
 

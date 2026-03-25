@@ -8,9 +8,17 @@ Personal finance tracking inside [Obsidian](https://obsidian.md), inspired by [l
 
 - **Double-entry bookkeeping** — every transaction is always balanced
 - **Multiple views** — sidebar summary, full dashboard, quick-add panel, and recurring payments panel
-- **Account hierarchy** — organize accounts with unlimited nesting (e.g. `Expenses:Food:Restaurants`)
+- **Account hierarchy** — organize accounts with unlimited nesting (e.g. `Gastos:Comida:Restaurantes`)
 - **Recurring transactions** — schedule weekly, monthly, or yearly payments and track which ones are paid
 - **Credit / debt management** — calculate interest, monthly installments, and track payoff progress
+- **Transaction notes** — attach a note to any transaction for extra context
+- **Import transactions** — paste ledger-formatted text and preview before saving; includes an AI prompt helper to generate entries from bank emails
+- **Export to CSV** — download a filtered or full transaction list as a spreadsheet
+- **Inline account management** — add, rename, delete, and configure accounts directly in the dashboard without leaving the view
+- **Excluded-from-balance accounts** — mark accounts like pension/AFP funds so they are tracked but not counted in your liquid balance cards
+- **Semantic account coloring** — expenses, income, and liabilities each have a distinct color in the account tree and transaction list
+- **Monthly summary** — sidebar shows current-month income, expenses, and net at a glance
+- **Quick-filter commands** — keyboard shortcuts to instantly filter by current month, current year, expenses only, or income only
 - **Markdown code blocks** — embed live balance tables, transaction registers, and summaries in any note
 - **Plain-text storage** — your data lives in a `.ledger` file compatible with ledger-cli
 - **Customizable currency** — symbol, position, and decimal places
@@ -49,9 +57,10 @@ The main sidebar gives you a real-time overview of your finances:
 
 | Section | Description |
 |---------|-------------|
-| **Summary cards** | Total income, total expenses, and net balance |
-| **Accounts** | Hierarchical tree showing the balance of each account and sub-account |
-| **Transactions** | List of recent transactions — click any row to edit it |
+| **Summary cards** | Total income, total expenses, and net balance (accounts excluded from balance are not counted) |
+| **Monthly summary** | Current-month income, expenses, and net in a second row of cards |
+| **Accounts** | Hierarchical tree showing the balance of each account, color-coded by type |
+| **Transactions** | Paginated list of recent transactions — click any row to edit it |
 
 ### Sidebar buttons
 
@@ -59,14 +68,13 @@ The main sidebar gives you a real-time overview of your finances:
 |--------|--------|
 | **+ Nuevo** | Open the add-transaction form |
 | **↻** | Reload data from the ledger file |
-| **⚙** (next to Accounts) | Open the account manager |
-| **Ver todas** | Show all transactions (appears when there are more than 10) |
+| **⚙** (next to Accounts) | Open the account manager modal |
 
 ---
 
 ## Adding Transactions
 
-Click **+ Nuevo** (or run the command **Agregar transaccion**) to open the transaction form:
+Click **+ Nuevo** (or run the command **Nueva transaccion**) to open the transaction form:
 
 | Field | Description |
 |-------|-------------|
@@ -77,6 +85,7 @@ Click **+ Nuevo** (or run the command **Agregar transaccion**) to open the trans
 | **Destino** | Account receiving the money |
 | **Origen** | Account the money comes from |
 | **Estado** | Status: Confirmed (`*`), Pending (`!`), or Unmarked |
+| **Notas** | Optional free-text note attached to the transaction |
 
 ### Transaction types
 
@@ -91,10 +100,10 @@ Click **+ Nuevo** (or run the command **Agregar transaccion**) to open the trans
 
 ## Editing and Deleting Transactions
 
-Click on any transaction row in the sidebar to open the edit form (a pencil icon ✎ appears on hover).
+Click on any transaction row in the sidebar or dashboard to open the edit form (a pencil icon ✎ appears on hover).
 
 From the editor you can:
-- Modify any field (date, description, amount, accounts, status)
+- Modify any field (date, description, amount, accounts, status, notes)
 - **Save** — updates the transaction in the ledger file
 - **Delete** — removes the transaction (with a confirmation dialog)
 
@@ -108,9 +117,45 @@ The dashboard includes:
 - **Filters** — date range, account, free-text search
 - **Quick filter buttons** — Today / This Month / This Year / All
 - **Cash flow chart** — visual income vs. expenses over time
-- **Transaction table** — full filterable/sortable list
-- **Account panel** — balance breakdown per account
-- **Recurring panel** — upcoming scheduled payments
+- **Transaction list** — mobile-friendly card layout showing date, payee, accounts, and amount; click any row to edit
+- **Account panel** — balance breakdown per account with semantic coloring; click ⚙ to open the inline account manager
+- **Action buttons** — **+ Nueva** (add transaction), **⬆ Importar** (import from text), **⬇ CSV** (export), **↻** (reload)
+
+### Inline account manager
+
+Clicking ⚙ in the account panel opens a management panel directly in the dashboard without navigating away:
+
+- **Tabs** — switch between Gastos, Ingresos, Activos, and Pasivos
+- **Sorted list** — accounts displayed alphabetically
+- **Add** — type a name, select prefix, press **+** (prefix is pre-filled based on the active tab)
+- **Rename** — click ✎ to edit inline, press Enter to save; all existing transactions are updated automatically
+- **Delete** — click × to remove an account
+- **Exclude from balance** — click ◎ to exclude an account from the summary balance cards (shown with ⊘ when excluded); useful for accounts whose funds are not freely accessible (e.g. pension/AFP)
+
+### Importing transactions
+
+Click **⬆ Importar** to open the import dialog:
+
+1. Paste one or more transactions in ledger-cli format into the text area
+2. The preview updates live — valid transactions are listed with date, payee, and amount
+3. Click **📋 Copiar cuentas para IA** to copy all your accounts and format instructions to the clipboard, so you can paste them into ChatGPT or Claude to generate entries from a bank email or statement
+4. Click **Importar** to save all previewed transactions to your ledger file
+
+### Exporting to CSV
+
+Click **⬇ CSV** to download the currently filtered transactions as a comma-separated file. If no filter is active, all transactions are exported.
+
+### Quick-filter commands
+
+The following commands are available from the command palette (`Ctrl+P`) and can be assigned keyboard shortcuts:
+
+| Command | Action |
+|---------|--------|
+| **Filtrar: mes actual** | Show transactions from the current calendar month |
+| **Filtrar: año actual** | Show transactions from the current calendar year |
+| **Filtrar: solo gastos** | Show only expense accounts |
+| **Filtrar: solo ingresos** | Show only income accounts |
+| **Limpiar filtros** | Reset all active filters |
 
 ---
 
@@ -126,22 +171,29 @@ For fast data entry, open the Quick Add panel with `Ctrl+P` → **Agregar movimi
 
 ## Account Management
 
-Open the account manager from the **⚙** icon in the sidebar or `Ctrl+P` → **Gestionar cuentas**.
+Accounts can be managed in two ways:
+- **Inline panel** — click ⚙ in the dashboard account section for an embedded manager
+- **Modal** — run `Ctrl+P` → **Gestionar cuentas** for a standalone window
+
+Both offer the same functionality.
 
 ### Account types
 
-| Type | Prefix | Purpose | Examples |
-|------|--------|---------|----------|
-| **Assets** | `Activos:` | Things you own | Bank, Cash, Savings |
-| **Expenses** | `Gastos:` | Where money goes | Food, Transport, Health |
-| **Income** | `Ingresos:` | Where money comes from | Salary, Freelance |
-| **Liabilities** | `Pasivos:` | What you owe | CreditCard, Loan |
+| Type | Prefix | Purpose | Color |
+|------|--------|---------|-------|
+| **Gastos (Expenses)** | `Gastos:` | Where money goes | Red |
+| **Ingresos (Income)** | `Ingresos:` | Where money comes from | Green |
+| **Activos (Assets)** | `Activos:` | Things you own | Neutral |
+| **Pasivos (Liabilities)** | `Pasivos:` | What you owe | Yellow/Orange |
 
 ### Actions
 
-- **Add account** — type a name and press **+**. The prefix is added automatically if you omit it.
-- **Rename account** — click the ✎ icon, edit the name inline, press Enter. All existing transactions are updated automatically.
-- **Delete account** — click the × button.
+- **Add account** — type a name, select the prefix, and press **+**
+- **Rename account** — click ✎, edit inline, press Enter. All existing transactions are updated automatically.
+- **Delete account** — click × to remove an account
+- **Exclude from balance** — click ◎ to toggle exclusion. Excluded accounts (shown as ⊘) are still tracked and visible in the tree, but their balance is not counted in the summary cards. This is useful for accounts like pension funds (AFP) whose money is not freely accessible.
+
+> **Note:** Excluding an account from balance only affects the summary cards. The account still appears in the tree, and all its transactions remain in the ledger.
 
 ### Sub-accounts
 
@@ -337,18 +389,24 @@ orden: asc
 
 ## Commands
 
-All commands are accessible from the command palette (`Ctrl+P`):
+All commands are accessible from the command palette (`Ctrl+P`) and can be assigned keyboard shortcuts:
 
 | Command | Description |
 |---------|-------------|
-| **Agregar transaccion** | Open the add-transaction form |
+| **Nueva transaccion** | Open the add-transaction form |
 | **Abrir panel lateral** | Open the main sidebar |
 | **Abrir panel central** | Open the full dashboard |
 | **Abrir archivo ledger** | Open the `.ledger` file for direct editing |
 | **Gestionar cuentas** | Open the account manager |
 | **Abrir panel de recurrentes** | Open the recurring transactions panel |
-| **Agregar movimientos** | Open the quick-add panel |
+| **Abrir panel de nuevos movimientos** | Open the quick-add panel |
 | **Nuevo credito** | Open the credit/loan wizard |
+| **Importar transacciones** | Open the import dialog |
+| **Filtrar: mes actual** | Filter dashboard to current month |
+| **Filtrar: año actual** | Filter dashboard to current year |
+| **Filtrar: solo gastos** | Filter dashboard to expense accounts |
+| **Filtrar: solo ingresos** | Filter dashboard to income accounts |
+| **Limpiar filtros** | Reset all dashboard filters |
 
 ---
 
@@ -412,6 +470,7 @@ Your data is stored as a plain-text file compatible with [ledger-cli](https://le
 ```ledger
 ; Comment
 2026/03/01 * Salario Marzo
+    ; Deposito quincena
     Activos:Banco              $1000000
     Ingresos:Salario
 
@@ -427,6 +486,7 @@ Your data is stored as a plain-text file compatible with [ledger-cli](https://le
 ### Format rules
 
 - The first line of each transaction is: `DATE [STATUS] DESCRIPTION`
+- A line starting with `;` immediately after the date line is treated as a **note** for that transaction
 - Subsequent lines (indented) are account postings
 - The last posting can omit the amount — it is calculated automatically to balance the transaction
 - Status flags: `*` = confirmed, `!` = pending, no flag = unmarked

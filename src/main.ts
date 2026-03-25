@@ -10,6 +10,7 @@ import { LedgerMainView } from './views/LedgerMainView';
 import { RecurringSidebarView } from './views/RecurringSidebarView';
 import { QuickAddView } from './views/QuickAddView';
 import { AddTransactionModal } from './modals/AddTransactionModal';
+import { ImportTransactionsModal } from './modals/ImportTransactionsModal';
 import { ManageAccountsModal } from './modals/ManageAccountsModal';
 import { CreditWizardModal } from './modals/CreditWizardModal';
 import { LedgerSettingTab } from './settings/SettingsTab';
@@ -154,6 +155,14 @@ export default class SimpleLedgerPlugin extends Plugin {
 			},
 		});
 
+		this.addCommand({
+			id: 'import-transactions',
+			name: 'Importar transacciones',
+			callback: () => {
+				new ImportTransactionsModal(this.app, this, () => this._refreshViews()).open();
+			},
+		});
+
 		// Obsidian URI handler
 		// Usage: obsidian://simple-ledger?payee=Texto&amount=5000&to=Gastos:Comida&from=Activos:Banco
 		// Optional: &date=2026/03/22&status=*
@@ -235,6 +244,7 @@ export default class SimpleLedgerPlugin extends Plugin {
 			}
 		}
 		if (!this.settings.archivedAccounts) this.settings.archivedAccounts = [];
+		if (!this.settings.excludedFromBalance) this.settings.excludedFromBalance = [];
 		if (!this.settings.recurringTransactions) this.settings.recurringTransactions = [];
 		if (!this.settings.credits) this.settings.credits = [];
 		if (!this.settings.savedFilters) this.settings.savedFilters = { from: '', to: '', account: '', search: '' };
