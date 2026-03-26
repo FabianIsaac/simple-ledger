@@ -12,6 +12,7 @@ Personal finance tracking inside [Obsidian](https://obsidian.md), inspired by [l
 - **Recurring transactions** — schedule weekly, monthly, or yearly payments and track which ones are paid
 - **Credit / debt management** — calculate interest, monthly installments, and track payoff progress
 - **Transaction notes** — attach a note to any transaction for extra context
+- **Charts** — cash flow chart (daily bars + cumulative net line), donut pie chart for expense/income distribution, and grouped bar chart for period comparisons; all embeddable as code blocks in any note
 - **Import transactions** — paste ledger-formatted text and preview before saving; includes an AI prompt helper to generate entries from bank emails
 - **Export to CSV** — download a filtered or full transaction list as a spreadsheet
 - **Inline account management** — add, rename, delete, and configure accounts directly in the dashboard without leaving the view
@@ -116,10 +117,28 @@ Open the full dashboard with `Ctrl+P` → **Abrir panel central** or via the bar
 The dashboard includes:
 - **Filters** — date range, account, free-text search
 - **Quick filter buttons** — Today / This Month / This Year / All
-- **Cash flow chart** — visual income vs. expenses over time
+- **Charts** — toggle between cash flow chart and expense/income distribution pie chart
 - **Transaction list** — mobile-friendly card layout showing date, payee, accounts, and amount; click any row to edit
 - **Account panel** — balance breakdown per account with semantic coloring; click ⚙ to open the inline account manager
 - **Action buttons** — **+ Nueva** (add transaction), **⬆ Importar** (import from text), **⬇ CSV** (export), **↻** (reload)
+
+### Charts
+
+The chart section has two modes toggled with the **Flujo de caja** / **Distribución** buttons:
+
+**Cash flow** — bar chart of daily income and expenses overlaid with a cumulative net line. Always loaded.
+
+**Distribución** — donut pie chart showing spending (or income) breakdown by account. Only built when you switch to this mode. Sub-controls:
+
+| Control | Options | Description |
+|---------|---------|-------------|
+| Type | **Gastos** / **Ingresos** | Which account type to break down |
+| Level | **Nivel 1** / **Nivel 2** | Top-level sub-accounts vs. deeper sub-accounts |
+
+- Nivel 1 groups by the first sub-account level (e.g. `Comida`, `Transporte`)
+- Nivel 2 groups by the second level (e.g. `Comida:Restaurantes`, `Comida:Supermercado`)
+- If there are more than 9 categories, the smallest are grouped as **Otros**
+- Hover a slice to see the exact amount and percentage in a tooltip
 
 ### Inline account manager
 
@@ -325,24 +344,53 @@ Shows income, expenses, and net grouped by period:
 ```
 ````
 
+### Pie chart
+
+Shows a donut pie chart breaking down spending or income by account:
+
+````
+```ledger-pie
+```
+````
+
+### Cash flow chart
+
+Shows daily income and expense bars with a cumulative net line:
+
+````
+```ledger-cashflow
+```
+````
+
+### Bar chart
+
+Shows grouped bars of income vs expenses per month or year — useful for comparing periods at a glance:
+
+````
+```ledger-bar
+```
+````
+
 ---
 
 ### Filter options
 
-All three block types accept filter options, one per line, in `key: value` format:
+All block types accept filter options, one per line, in `key: value` format:
 
-| Option | Description | Example |
-|--------|-------------|---------|
-| `cuenta` | Filter by account name (partial match) | `cuenta: Gastos` |
-| `desde` | Start date (inclusive) | `desde: 2026/03/01` |
-| `hasta` | End date (inclusive) | `hasta: 2026/03/31` |
-| `mes` | Shortcut for a full calendar month | `mes: 2026/03` |
-| `año` | Shortcut for a full calendar year | `año: 2026` |
-| `hoy` | Shortcut for today only | `hoy` |
-| `buscar` | Search in description or account name | `buscar: supermercado` |
-| `limite` | Maximum number of results | `limite: 5` |
-| `orden` | Sort order: `asc` or `desc` (default: `desc`) | `orden: asc` |
-| `periodo` | For summary only: `mes` (monthly) or `anual` (yearly) | `periodo: anual` |
+| Option | Applies to | Description | Example |
+|--------|-----------|-------------|---------|
+| `cuenta` | all | Filter by account name (partial match) | `cuenta: Gastos` |
+| `desde` | all | Start date (inclusive) | `desde: 2026/03/01` |
+| `hasta` | all | End date (inclusive) | `hasta: 2026/03/31` |
+| `mes` | all | Shortcut for a full calendar month | `mes: 2026/03` |
+| `año` | all | Shortcut for a full calendar year | `año: 2026` |
+| `hoy` | all | Shortcut for today only | `hoy` |
+| `buscar` | all | Search in description or account name | `buscar: supermercado` |
+| `limite` | balance, register | Maximum number of results | `limite: 5` |
+| `orden` | balance, register | Sort order: `asc` or `desc` (default: `desc`) | `orden: asc` |
+| `periodo` | summary, bar | Group by `mes` (monthly) or `anual` (yearly) | `periodo: anual` |
+| `tipo` | pie | Account type: `gastos`, `ingresos`, `activos`, `pasivos` (default: `gastos`) | `tipo: ingresos` |
+| `nivel` | pie | Grouping depth: `1` = top sub-accounts, `2` = deeper sub-accounts (default: `1`) | `nivel: 2` |
 
 ### Practical examples
 
@@ -382,6 +430,54 @@ hoy
 ```ledger-register
 buscar: supermercado
 orden: asc
+```
+````
+
+**Expense breakdown for the current month (top-level):**
+````
+```ledger-pie
+tipo: gastos
+nivel: 1
+mes: 2026/03
+```
+````
+
+**Income sources for the year:**
+````
+```ledger-pie
+tipo: ingresos
+año: 2026
+```
+````
+
+**Detailed expense sub-accounts:**
+````
+```ledger-pie
+tipo: gastos
+nivel: 2
+```
+````
+
+**Cash flow for Q1 2026:**
+````
+```ledger-cashflow
+desde: 2026/01/01
+hasta: 2026/03/31
+```
+````
+
+**Monthly income vs expenses for the current year:**
+````
+```ledger-bar
+año: 2026
+periodo: mes
+```
+````
+
+**Yearly comparison (all time):**
+````
+```ledger-bar
+periodo: anual
 ```
 ````
 

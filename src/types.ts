@@ -82,6 +82,8 @@ export interface BlockFilterOptions {
 	limit: number;
 	order: 'asc' | 'desc';
 	period: 'month' | 'year';
+	tipo: 'gastos' | 'ingresos' | 'activos' | 'pasivos';
+	nivel: 1 | 2;
 }
 
 /**

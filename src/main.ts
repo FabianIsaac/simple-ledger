@@ -17,10 +17,14 @@ import { LedgerSettingTab } from './settings/SettingsTab';
 import { renderBalanceBlock } from './renderers/balanceBlock';
 import { renderRegisterBlock } from './renderers/registerBlock';
 import { renderSummaryBlock } from './renderers/summaryBlock';
+import { renderPieBlock } from './renderers/pieBlock';
+import { renderCashflowBlock } from './renderers/cashflowBlock';
+import { renderBarBlock } from './renderers/barBlock';
 
 export default class SimpleLedgerPlugin extends Plugin {
 	settings!: PluginSettings;
 	transactions: Transaction[] = [];
+	private _loadingPromise: Promise<Transaction[]> | null = null;
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
@@ -213,13 +217,26 @@ export default class SimpleLedgerPlugin extends Plugin {
 			});
 		});
 
+		this.registerMarkdownCodeBlockProcessor('ledger-pie', (source, el) => {
+			this.loadTransactions().then(() => {
+				renderPieBlock(el, this, source.trim());
+			});
+		});
+
+		this.registerMarkdownCodeBlockProcessor('ledger-cashflow', (source, el) => {
+			this.loadTransactions().then(() => {
+				renderCashflowBlock(el, this, source.trim());
+			});
+		});
+
+		this.registerMarkdownCodeBlockProcessor('ledger-bar', (source, el) => {
+			this.loadTransactions().then(() => {
+				renderBarBlock(el, this, source.trim());
+			});
+		});
+
 		// Settings tab
 		this.addSettingTab(new LedgerSettingTab(this.app, this));
-
-		// Load transactions on startup
-		this.app.workspace.onLayoutReady(() => {
-			this.loadTransactions();
-		});
 
 		// Auto-recarga cuando el archivo .ledger cambia (sincronización entre dispositivos)
 		this.registerEvent(
@@ -255,21 +272,27 @@ export default class SimpleLedgerPlugin extends Plugin {
 	}
 
 	async loadTransactions(): Promise<Transaction[]> {
-		try {
-			const filePath = this.settings.ledgerFile;
-			const file = this.app.vault.getAbstractFileByPath(filePath);
-			if (file && file instanceof TFile) {
-				const content = await this.app.vault.read(file);
-				this.transactions = LedgerParser.parse(content);
-			} else {
+		if (this._loadingPromise) return this._loadingPromise;
+		this._loadingPromise = (async () => {
+			try {
+				const filePath = this.settings.ledgerFile;
+				const file = this.app.vault.getAbstractFileByPath(filePath);
+				if (file && file instanceof TFile) {
+					const content = await this.app.vault.read(file);
+					this.transactions = LedgerParser.parse(content);
+				} else {
+					this.transactions = [];
+				}
+			} catch (e) {
+				console.error('Simple Ledger: error al leer transacciones', e);
 				this.transactions = [];
+				new Notice('Error al leer el archivo ledger. Revisa la consola para más detalles.');
+			} finally {
+				this._loadingPromise = null;
 			}
-		} catch (e) {
-			console.error('Simple Ledger: error al leer transacciones', e);
-			this.transactions = [];
-			new Notice('Error al leer el archivo ledger. Revisa la consola para más detalles.');
-		}
-		return this.transactions;
+			return this.transactions;
+		})();
+		return this._loadingPromise;
 	}
 
 	async addTransaction(data: AddTransactionData): Promise<void> {
@@ -311,14 +334,7 @@ export default class SimpleLedgerPlugin extends Plugin {
 		}
 
 		await this.loadTransactions();
-
-		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_LEDGER);
-		for (const leaf of leaves) {
-			if (leaf.view instanceof LedgerSidebarView) {
-				leaf.view.render();
-			}
-		}
-
+		this._refreshViews();
 		new Notice(`Transaccion guardada: ${payee}`);
 	}
 

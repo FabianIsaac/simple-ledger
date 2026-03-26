@@ -33,6 +33,7 @@ export class LedgerSidebarView extends ItemView {
 	getIcon(): string { return 'wallet'; }
 
 	async onOpen(): Promise<void> {
+		await this.plugin.loadTransactions();
 		this.render();
 	}
 

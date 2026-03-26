@@ -26,6 +26,8 @@ const NO_FILTER: BlockFilterOptions = {
 	limit: 0,
 	order: 'desc',
 	period: 'month',
+	tipo: 'gastos',
+	nivel: 1,
 };
 
 // ─── parseBlockOptions ─────────────────────────────────────────────────────
