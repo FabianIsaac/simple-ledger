@@ -147,14 +147,33 @@ export class LedgerSidebarView extends ItemView {
 			const row = wrapper.createDiv('sl-tx-row sl-tx-clickable');
 			row.createSpan({ text: tx.date, cls: 'sl-tx-date' });
 			row.createSpan({ text: tx.payee, cls: 'sl-tx-payee' });
+			const totalAmt = tx.postings
+				.filter(p => (p.amount ?? 0) > 0)
+				.reduce((s, p) => s + (p.amount ?? 0), 0);
 			const mainPosting = tx.postings.find(p => (p.amount ?? 0) > 0) ?? tx.postings[0];
-			if (mainPosting && mainPosting.amount !== null) {
-				row.createSpan({
-					text: fmtAmount(mainPosting.amount, settings),
-					cls: `sl-tx-amount ${(mainPosting.amount ?? 0) >= 0 ? 'sl-positive' : 'sl-negative'}`,
-				});
-			}
+			const isExpense = mainPosting?.account.startsWith('Gastos') || mainPosting?.account.startsWith('Pasivos');
+			row.createSpan({
+				text: fmtAmount(totalAmt, settings),
+				cls: `sl-tx-amount ${isExpense ? 'sl-negative' : 'sl-positive'}`,
+			});
 			row.createSpan({ text: '✎', cls: 'sl-tx-edit-icon' });
+
+			// Postings: solo mostrar apiladas si hay más de 2
+			if (tx.postings.length > 2) {
+				const postingsEl = wrapper.createDiv('sl-tx-postings');
+				for (const p of tx.postings) {
+					const pRow = postingsEl.createDiv('sl-tx-posting-row');
+					pRow.createSpan({ text: p.account, cls: 'sl-tx-posting-account' });
+					if (p.amount !== null) {
+						const sign = p.amount >= 0 ? '+' : '';
+						pRow.createSpan({
+							text: sign + fmtAmount(p.amount, settings),
+							cls: `sl-tx-posting-amount ${p.amount >= 0 ? 'sl-positive' : 'sl-negative'}`,
+						});
+					}
+				}
+			}
+
 			if (tx.notes) {
 				wrapper.createDiv({ text: tx.notes, cls: 'sl-tx-note-text' });
 			}

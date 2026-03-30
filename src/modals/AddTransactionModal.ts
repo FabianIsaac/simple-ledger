@@ -1,6 +1,7 @@
 import { App, Modal, Notice } from 'obsidian';
 import { AddTransactionData, ISimpleLedgerPlugin } from '../types';
 import { todayStr } from '../utils/formatting';
+import { MultiPostingModal } from './MultiPostingModal';
 
 type Plugin = ISimpleLedgerPlugin;
 
@@ -109,6 +110,15 @@ export class AddTransactionModal extends Modal {
 		notesRow.createEl('label', { text: 'Notas (opcional)' });
 		const notesInput = notesRow.createEl('textarea', { attr: { rows: '2', placeholder: 'Comentario o detalle adicional...' } });
 		notesInput.addEventListener('input', (e) => { this.notes = (e.target as HTMLTextAreaElement).value; });
+
+		// Multi-posting link
+		const multiRow = contentEl.createDiv('sl-form-row');
+		const multiLink = multiRow.createEl('a', { text: '+ Transaccion con multiples partidas', cls: 'sl-multi-link', href: '#' });
+		multiLink.addEventListener('click', (e) => {
+			e.preventDefault();
+			this.close();
+			new MultiPostingModal(this.app, this.plugin).open();
+		});
 
 		// Submit
 		const btnRow = contentEl.createDiv('sl-form-row sl-btn-row');

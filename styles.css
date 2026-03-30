@@ -1008,9 +1008,19 @@
   margin: 0;
 }
 
-.sl-chart-tabs {
+.sl-chart-switcher {
   display: flex;
   gap: 4px;
+}
+
+.sl-pie-controls-bottom {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--background-modifier-border);
 }
 
 .sl-chart-tab {
@@ -1029,11 +1039,17 @@
   border-color: var(--interactive-accent);
 }
 
+.sl-chart-subrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  margin-bottom: 4px;
+}
+
 .sl-chart-period-note {
   font-size: 0.72em;
   color: var(--text-faint);
-  margin-left: auto;
-  align-self: center;
 }
 
 /* Debts block */
@@ -1125,26 +1141,17 @@
   align-items: center;
 }
 
-.sl-pie-type-group,
-.sl-pie-level-group {
+.sl-pie-controls {
   display: flex;
+  align-items: center;
   gap: 4px;
 }
 
-.sl-pie-type-btn {
-  padding: 2px 9px;
-  border-radius: 4px;
-  border: 1px solid var(--background-modifier-border);
-  background: var(--background-secondary);
-  color: var(--text-muted);
-  font-size: 0.78em;
-  cursor: pointer;
-}
-
-.sl-pie-type-active {
-  background: var(--interactive-accent);
-  color: var(--text-on-accent);
-  border-color: var(--interactive-accent);
+.sl-pie-controls-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--background-modifier-border);
+  margin: 0 2px;
 }
 
 .sl-pie-svg {
@@ -1294,6 +1301,7 @@
   flex-shrink: 0;
 }
 
+/* 2-posting format: negAcct → posAcct (small, muted) */
 .sl-tx-item-bottom {
   display: flex;
   align-items: center;
@@ -1313,6 +1321,49 @@
 .sl-tx-item-arrow {
   flex-shrink: 0;
   color: var(--text-faint);
+}
+
+/* Postings list — main view */
+.sl-tx-item-postings {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 3px;
+}
+
+.sl-tx-posting-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.77em;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.sl-tx-posting-account {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.sl-tx-posting-amount {
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  font-size: 0.95em;
+}
+
+/* Postings list — sidebar */
+.sl-tx-postings {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 2px 8px 4px;
+}
+
+.sl-tx-postings .sl-tx-posting-row {
+  font-size: 0.76em;
 }
 
 .sl-tx-item-right {
@@ -2569,6 +2620,123 @@
   font-size: 0.78em;
   color: #4caf50;
   font-weight: 500;
+}
+
+/* ─── Multi-posting modal ────────────────────────────────────────────────── */
+
+.sl-multi-modal .modal-content {
+  min-width: 520px;
+}
+
+.sl-multi-section {
+  margin-bottom: 14px;
+}
+
+.sl-multi-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+
+.sl-multi-add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 4px;
+  background: transparent;
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.sl-multi-add-btn:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.sl-multi-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.sl-multi-row {
+  display: grid;
+  grid-template-columns: 1fr 120px 28px;
+  gap: 6px;
+  align-items: center;
+}
+
+.sl-multi-account {
+  width: 100%;
+  font-size: 0.9em;
+}
+
+.sl-multi-amount {
+  width: 100%;
+  font-size: 0.9em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-multi-del-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.sl-multi-del-btn:hover {
+  background: var(--background-modifier-error);
+  color: var(--text-on-accent);
+}
+
+.sl-multi-balance {
+  font-size: 0.82em;
+  font-variant-numeric: tabular-nums;
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.sl-multi-balance-ok {
+  background: color-mix(in srgb, #4caf50 12%, transparent);
+  color: #4caf50;
+}
+
+.sl-multi-balance-err {
+  background: color-mix(in srgb, #f44336 12%, transparent);
+  color: #f44336;
+}
+
+.sl-multi-link {
+  font-size: 0.82em;
+  color: var(--text-muted);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.sl-multi-link:hover {
+  color: var(--text-accent);
+  text-decoration: underline;
 }
 
 /* ─── Responsive ─────────────────────────────────────────────────────────── */

@@ -2,7 +2,7 @@ import { Notice, Plugin, TFile } from 'obsidian';
 import { getNextDueDate, isRecurringPaidThisPeriod } from './utils/recurring';
 import { DebtsModal } from './modals/DebtsModal';
 import { DEFAULT_SETTINGS, VIEW_TYPE_LEDGER, VIEW_TYPE_LEDGER_MAIN, VIEW_TYPE_RECURRING, VIEW_TYPE_QUICK_ADD } from './constants';
-import { PluginSettings, Transaction, AddTransactionData, RecurringTransaction } from './types';
+import { PluginSettings, Transaction, AddTransactionData, MultiPostingTransactionData, RecurringTransaction } from './types';
 import { LedgerParser } from './parser/LedgerParser';
 import { fmtAmount, fmtAmountRaw, todayStr } from './utils/formatting';
 import { FREQUENCY_LABELS } from './utils/recurring';
@@ -12,6 +12,7 @@ import { LedgerMainView } from './views/LedgerMainView';
 import { RecurringSidebarView } from './views/RecurringSidebarView';
 import { QuickAddView } from './views/QuickAddView';
 import { AddTransactionModal } from './modals/AddTransactionModal';
+import { MultiPostingModal } from './modals/MultiPostingModal';
 import { ImportTransactionsModal } from './modals/ImportTransactionsModal';
 import { ManageAccountsModal } from './modals/ManageAccountsModal';
 import { CreditWizardModal } from './modals/CreditWizardModal';
@@ -59,6 +60,14 @@ export default class SimpleLedgerPlugin extends Plugin {
 				new AddTransactionModal(this.app, this, (data) => {
 					this.addTransaction(data);
 				}).open();
+			},
+		});
+
+		this.addCommand({
+			id: 'add-multi-posting-transaction',
+			name: 'Nueva transaccion multi-partida',
+			callback: () => {
+				new MultiPostingModal(this.app, this).open();
 			},
 		});
 
@@ -363,6 +372,40 @@ export default class SimpleLedgerPlugin extends Plugin {
 		new Notice(`Transaccion guardada: ${payee}`);
 	}
 
+	async addMultiPostingTransaction(data: MultiPostingTransactionData): Promise<void> {
+		const { date, payee, status, notes, postings } = data;
+		const settings = this.settings;
+
+		const formattedPostings = postings.map(p => ({
+			account: p.account,
+			amount: p.amount,
+			currency: '',
+			amountFormatted: p.amount !== null ? fmtAmountRaw(p.amount, settings) : undefined,
+		}));
+
+		const txText = LedgerParser.formatTransaction(date, payee, formattedPostings, status, notes);
+
+		try {
+			const filePath = settings.ledgerFile;
+			const file = this.app.vault.getAbstractFileByPath(filePath);
+			if (!file) {
+				const header = `; Simple Ledger - Archivo de transacciones\n; Formato compatible con ledger-cli\n; Creado: ${todayStr()}\n\n`;
+				await this.app.vault.create(filePath, header + txText + '\n');
+			} else if (file instanceof TFile) {
+				const content = await this.app.vault.read(file);
+				await this.app.vault.modify(file, content + '\n' + txText + '\n');
+			}
+		} catch (e) {
+			console.error('Simple Ledger: error al guardar transaccion multi-partida', e);
+			new Notice('Error al guardar la transaccion. Revisa la consola para más detalles.');
+			return;
+		}
+
+		await this.loadTransactions();
+		this._refreshViews();
+		new Notice(`Transaccion guardada: ${payee}`);
+	}
+
 	async addCreditPayment(rec: RecurringTransaction): Promise<void> {
 		const settings = this.settings;
 		const capitalPortion = rec._principalPortion ?? rec.amount;
@@ -481,6 +524,19 @@ export default class SimpleLedgerPlugin extends Plugin {
 			oldName,
 			newName
 		);
+
+		// Actualizar referencias en cuentas predeterminadas
+		for (const key of Object.keys(this.settings.defaultAccounts) as Array<keyof typeof this.settings.defaultAccounts>) {
+			this.settings.defaultAccounts[key] = this.settings.defaultAccounts[key].map(
+				a => a === oldName ? newName : a
+			);
+		}
+
+		// Actualizar referencias en cuentas excluidas del balance
+		this.settings.excludedFromBalance = (this.settings.excludedFromBalance ?? []).map(
+			a => a === oldName ? newName : a
+		);
+
 		await this.saveSettings();
 
 		await this.loadTransactions();

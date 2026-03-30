@@ -48,6 +48,7 @@ export class LedgerMainView extends ItemView {
 	private pieType: 'gastos' | 'ingresos';
 	private pieLevel: 1 | 2;
 	private txPage: number;
+	private txSortOrder: 'desc' | 'asc';
 	private filtersVisible: boolean;
 
 	constructor(leaf: WorkspaceLeaf, plugin: Plugin) {
@@ -61,11 +62,12 @@ export class LedgerMainView extends ItemView {
 		this.pieType = 'gastos';
 		this.pieLevel = 1;
 		this.txPage = 0;
+		this.txSortOrder = 'desc';
 		this.filtersVisible = false;
 	}
 
 	getViewType(): string { return VIEW_TYPE_LEDGER_MAIN; }
-	getDisplayText(): string { return 'Ledger'; }
+	getDisplayText(): string { return 'Simple Ledger'; }
 	getIcon(): string { return 'bar-chart-2'; }
 
 	async onOpen(): Promise<void> {
@@ -157,13 +159,17 @@ export class LedgerMainView extends ItemView {
 		const monthIncome = Object.entries(monthLiquid).filter(([k]) => k.startsWith(ACCT.income)).reduce((s, [, v]) => s + Math.abs(v), 0);
 		const monthExpenses = Object.entries(monthLiquid).filter(([k]) => k.startsWith(ACCT.expenses)).reduce((s, [, v]) => s + Math.abs(v), 0);
 		const monthAssets = Object.entries(monthLiquid).filter(([k]) => k.startsWith(ACCT.assets)).reduce((s, [, v]) => s + v, 0);
-		const monthLiabilities = Object.entries(monthLiquid).filter(([k]) => k.startsWith(ACCT.liabilities)).reduce((s, [, v]) => s + Math.abs(v), 0);
+		// Cambio neto en deuda este mes: negativo en ledger = más deuda, positivo = pagaste
+		const monthNetDebtChange = -Object.entries(monthLiquid)
+			.filter(([k]) => k.startsWith(ACCT.liabilities))
+			.reduce((s, [, v]) => s + v, 0);
 
 		const cards = container.createDiv('sl-main-cards');
 		this._card(cards, 'Ingresos', monthIncome, totalIncome, 'sl-card-income');
 		this._card(cards, 'Gastos', monthExpenses, totalExpenses, 'sl-card-expense');
 		this._card(cards, 'Balance', monthAssets, totalAssets, 'sl-card-balance');
-		this._card(cards, 'Deudas', monthLiabilities, totalLiabilities, 'sl-card-liability');
+		// Deudas: grande = saldo actual total; pequeño = cambio neto este mes
+		this._card(cards, 'Deudas', totalLiabilities, monthNetDebtChange, 'sl-card-liability', 'saldo actual', 'este mes');
 
 		// Two-column layout
 		const content = container.createDiv('sl-main-content');
@@ -266,47 +272,59 @@ export class LedgerMainView extends ItemView {
 	private _renderChart(parent: HTMLElement, allTxs: Transaction[], filteredTxs: Transaction[]): void {
 		const section = parent.createDiv('sl-chart-section');
 
-		// Toggle tabs
+		// Compute chart data — both modes use the same period
+		const hasDateFilter = !!(this.filters.from || this.filters.to);
+		const now = new Date();
+		const currentMonth = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}`;
+		const chartTxs = hasDateFilter
+			? filteredTxs
+			: filteredTxs.filter(t => t.date.startsWith(currentMonth));
+
+		// Header: title + chart switcher icons (top right)
 		const chartHeader = section.createDiv('sl-chart-header');
 		chartHeader.createEl('h3', { text: this.chartMode === 'cashflow' ? 'Flujo de caja' : 'Distribución' });
-		const tabs = chartHeader.createDiv('sl-chart-tabs');
-		const cashflowTab = tabs.createEl('button', { text: 'Flujo de caja', cls: 'sl-chart-tab' + (this.chartMode === 'cashflow' ? ' sl-chart-tab-active' : '') });
-		cashflowTab.addEventListener('click', () => { this.chartMode = 'cashflow'; this.render(); });
-		const pieTab = tabs.createEl('button', { text: 'Distribución', cls: 'sl-chart-tab' + (this.chartMode === 'pie' ? ' sl-chart-tab-active' : '') });
-		pieTab.addEventListener('click', () => { this.chartMode = 'pie'; this.render(); });
+		const switcher = chartHeader.createDiv('sl-chart-switcher');
+		for (const [mode, icon, title] of [['cashflow', 'bar-chart-2', 'Flujo de caja'], ['pie', 'pie-chart', 'Distribución']] as [string, string, string][]) {
+			const btn = switcher.createEl('button', {
+				cls: 'sl-icon-btn' + (this.chartMode === mode ? ' sl-btn-active' : ''),
+				attr: { title },
+			});
+			setIcon(btn, icon);
+			btn.addEventListener('click', () => { this.chartMode = mode as 'cashflow' | 'pie'; this.render(); });
+		}
+
+		// Period note
+		if (!hasDateFilter) {
+			const subRow = section.createDiv('sl-chart-subrow');
+			subRow.createSpan({ text: 'Mes actual • Aplica un filtro de fecha para ver otro período', cls: 'sl-chart-period-note' });
+		}
 
 		if (this.chartMode === 'cashflow') {
-			const hasDateFilter = !!(this.filters.from || this.filters.to);
-			const now = new Date();
-			const currentMonth = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}`;
-			const chartTxs = hasDateFilter
-				? filteredTxs
-				: filteredTxs.filter(t => t.date.startsWith(currentMonth));
-			if (!hasDateFilter) {
-				const note = chartHeader.createDiv('sl-chart-period-note');
-				note.setText('Mes actual • Aplica un filtro de fecha para ver otro período');
-			}
 			this._renderCashflowChart(section, chartTxs);
 		} else {
-			// Pie sub-controls
-			const pieControls = section.createDiv('sl-pie-controls');
-			const typeGroup = pieControls.createDiv('sl-pie-type-group');
-			for (const [key, label] of [['gastos', 'Gastos'], ['ingresos', 'Ingresos']] as [string, string][]) {
-				const btn = typeGroup.createEl('button', {
-					text: label,
-					cls: 'sl-pie-type-btn' + (this.pieType === key ? ' sl-pie-type-active' : ''),
+			this._renderPieChart(section, chartTxs);
+		}
+
+		// Pie controls at bottom, centered (only in pie mode)
+		if (this.chartMode === 'pie') {
+			const pieControls = section.createDiv('sl-pie-controls-bottom');
+			for (const [key, icon, title] of [['gastos', 'trending-down', 'Gastos'], ['ingresos', 'trending-up', 'Ingresos']] as [string, string, string][]) {
+				const btn = pieControls.createEl('button', {
+					cls: 'sl-icon-btn' + (this.pieType === key ? ' sl-btn-active' : ''),
+					attr: { title },
 				});
+				setIcon(btn, icon);
 				btn.addEventListener('click', () => { this.pieType = key as 'gastos' | 'ingresos'; this.render(); });
 			}
-			const levelGroup = pieControls.createDiv('sl-pie-level-group');
-			for (const [n, label] of [[1, 'Nivel 1'], [2, 'Nivel 2']] as [number, string][]) {
-				const btn = levelGroup.createEl('button', {
-					text: label,
-					cls: 'sl-pie-type-btn' + (this.pieLevel === n ? ' sl-pie-type-active' : ''),
+			pieControls.createSpan({ cls: 'sl-pie-controls-sep' });
+			for (const [n, icon, title] of [[1, 'list', 'Nivel 1'], [2, 'list-tree', 'Nivel 2']] as [number, string, string][]) {
+				const btn = pieControls.createEl('button', {
+					cls: 'sl-icon-btn' + (this.pieLevel === n ? ' sl-btn-active' : ''),
+					attr: { title },
 				});
+				setIcon(btn, icon);
 				btn.addEventListener('click', () => { this.pieLevel = n as 1 | 2; this.render(); });
 			}
-			this._renderPieChart(section, filteredTxs);
 		}
 	}
 
@@ -466,13 +484,30 @@ export class LedgerMainView extends ItemView {
 		txHeader.createEl('h3', { text: 'Transacciones' });
 		txHeader.createSpan({ text: `(${txs.length})`, cls: 'sl-tx-count' });
 
+		// Sort toggle button
+		const sortBtn = txHeader.createEl('button', {
+			cls: 'sl-icon-btn',
+			attr: { title: this.txSortOrder === 'desc' ? 'Más antiguas primero' : 'Más recientes primero' },
+		});
+		setIcon(sortBtn, this.txSortOrder === 'desc' ? 'arrow-down-narrow-wide' : 'arrow-up-narrow-wide');
+		sortBtn.addEventListener('click', () => {
+			this.txSortOrder = this.txSortOrder === 'desc' ? 'asc' : 'desc';
+			this.txPage = 0;
+			this.render();
+		});
+
 		if (txs.length === 0) {
 			section.createEl('p', { text: 'Sin transacciones para los filtros seleccionados', cls: 'sl-empty-msg' });
 			return;
 		}
 
 		const settings = this.plugin.settings;
-		const sorted = [...txs].sort((a, b) => b.date.localeCompare(a.date));
+		const dir = this.txSortOrder === 'desc' ? -1 : 1;
+		const sorted = [...txs].sort((a, b) => {
+			const dateCmp = a.date.localeCompare(b.date) * dir;
+			if (dateCmp !== 0) return dateCmp;
+			return (a.lineStart - b.lineStart) * dir;
+		});
 		const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
 		if (this.txPage >= totalPages) this.txPage = Math.max(0, totalPages - 1);
 
@@ -481,8 +516,9 @@ export class LedgerMainView extends ItemView {
 		const list = section.createDiv('sl-tx-list-main');
 		for (const tx of pageSlice) {
 			const posPosting = tx.postings.find(p => (p.amount ?? 0) > 0) ?? tx.postings[0];
-			const negPosting = tx.postings.find(p => (p.amount ?? 0) < 0) ?? tx.postings[1];
-			const amt = posPosting?.amount ?? 0;
+			const totalAmt = tx.postings
+				.filter(p => (p.amount ?? 0) > 0)
+				.reduce((s, p) => s + (p.amount ?? 0), 0);
 			const isExpense = posPosting && posPosting.account.startsWith(ACCT.expenses);
 			const isLiability = posPosting && posPosting.account.startsWith(ACCT.liabilities);
 			const amtColor = (isExpense || isLiability) ? 'sl-negative' : 'sl-positive';
@@ -502,15 +538,31 @@ export class LedgerMainView extends ItemView {
 				topRow.createSpan({ text: 'ⓘ', cls: 'sl-tx-item-note-icon', attr: { title: tx.notes } });
 			}
 
-			const bottomRow = left.createDiv('sl-tx-item-bottom');
-			const negAcct = negPosting?.account ?? '';
-			const posAcct = posPosting?.account ?? '';
-			bottomRow.createSpan({ text: negAcct, cls: `sl-tx-item-account ${acctLabelColor(negAcct)}` });
-			bottomRow.createSpan({ text: '→', cls: 'sl-tx-item-arrow' });
-			bottomRow.createSpan({ text: posAcct, cls: `sl-tx-item-account ${acctLabelColor(posAcct)}` });
+			if (tx.postings.length <= 2) {
+				const negPosting = tx.postings.find(p => (p.amount ?? 0) < 0) ?? tx.postings[1];
+				const bottomRow = left.createDiv('sl-tx-item-bottom');
+				const negAcct = negPosting?.account ?? '';
+				const posAcct = posPosting?.account ?? '';
+				bottomRow.createSpan({ text: negAcct, cls: `sl-tx-item-account ${acctLabelColor(negAcct)}` });
+				bottomRow.createSpan({ text: '→', cls: 'sl-tx-item-arrow' });
+				bottomRow.createSpan({ text: posAcct, cls: `sl-tx-item-account ${acctLabelColor(posAcct)}` });
+			} else {
+				const postingsContainer = left.createDiv('sl-tx-item-postings');
+				for (const p of tx.postings) {
+					const pRow = postingsContainer.createDiv('sl-tx-posting-row');
+					pRow.createSpan({ text: p.account, cls: `sl-tx-posting-account ${acctLabelColor(p.account)}` });
+					if (p.amount !== null) {
+						const sign = p.amount >= 0 ? '+' : '';
+						pRow.createSpan({
+							text: sign + fmtAmount(p.amount, settings),
+							cls: `sl-tx-posting-amount ${p.amount >= 0 ? 'sl-positive' : 'sl-negative'}`,
+						});
+					}
+				}
+			}
 
 			const right = item.createDiv('sl-tx-item-right');
-			right.createDiv({ text: fmtAmount(Math.abs(amt), settings), cls: `sl-tx-item-amount ${amtColor}` });
+			right.createDiv({ text: fmtAmount(totalAmt, settings), cls: `sl-tx-item-amount ${amtColor}` });
 
 			const actions = right.createDiv('sl-tx-item-actions');
 			const editBtn = actions.createEl('button', { text: '✎', cls: 'sl-row-action-btn', attr: { title: 'Editar' } });
@@ -743,16 +795,24 @@ export class LedgerMainView extends ItemView {
 		nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addBtn.click(); });
 	}
 
-	private _card(parent: HTMLElement, title: string, monthAmount: number, totalAmount: number, cls: string): void {
+	private _card(
+		parent: HTMLElement,
+		title: string,
+		bigAmount: number,
+		smallAmount: number,
+		cls: string,
+		bigLabel = 'este mes',
+		smallLabel = 'total',
+	): void {
 		const s = this.plugin.settings;
 		const card = parent.createDiv(`sl-card ${cls}`);
 		card.createDiv({ text: title, cls: 'sl-card-title' });
-		card.createDiv({ text: fmtAmount(monthAmount, s), cls: 'sl-card-amount' });
-		card.createDiv({ text: 'este mes', cls: 'sl-card-sublabel' });
+		card.createDiv({ text: fmtAmount(bigAmount, s), cls: 'sl-card-amount' });
+		card.createDiv({ text: bigLabel, cls: 'sl-card-sublabel' });
 		card.createDiv({ cls: 'sl-card-divider' });
 		const totalRow = card.createDiv('sl-card-total-row');
-		totalRow.createSpan({ text: fmtAmount(totalAmount, s), cls: 'sl-card-total-amount' });
-		totalRow.createSpan({ text: 'total', cls: 'sl-card-total-label' });
+		totalRow.createSpan({ text: fmtAmount(smallAmount, s), cls: 'sl-card-total-amount' });
+		totalRow.createSpan({ text: smallLabel, cls: 'sl-card-total-label' });
 	}
 
 	private async _openDailyNote(date: string): Promise<void> {

@@ -99,6 +99,7 @@ export interface ISimpleLedgerPlugin {
 	loadTransactions(): Promise<Transaction[]>;
 	saveSettings(): Promise<void>;
 	addTransaction(data: AddTransactionData): Promise<void>;
+	addMultiPostingTransaction(data: MultiPostingTransactionData): Promise<void>;
 	updateTransaction(oldTx: Transaction, newData: AddTransactionData): Promise<void>;
 	deleteTransaction(tx: Transaction): Promise<void>;
 	addCreditPayment(rec: RecurringTransaction): Promise<void>;
@@ -116,6 +117,19 @@ export interface AddTransactionData {
 	fromAccount: string;
 	status: string;
 	notes?: string;
+}
+
+export interface MultiPostingRow {
+	account: string;
+	amount: number | null; // null = auto-balance (one row allowed)
+}
+
+export interface MultiPostingTransactionData {
+	date: string;
+	payee: string;
+	status: string;
+	notes?: string;
+	postings: MultiPostingRow[];
 }
 
 export interface BalanceTree {
