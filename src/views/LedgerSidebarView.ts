@@ -21,11 +21,13 @@ function acctColor(fullName: string, amount: number): string {
 export class LedgerSidebarView extends ItemView {
 	private plugin: Plugin;
 	private txPage: number;
+	private treeCollapsed: boolean;
 
 	constructor(leaf: WorkspaceLeaf, plugin: Plugin) {
 		super(leaf);
 		this.plugin = plugin;
 		this.txPage = 0;
+		this.treeCollapsed = false;
 	}
 
 	getViewType(): string { return VIEW_TYPE_LEDGER; }
@@ -115,11 +117,18 @@ export class LedgerSidebarView extends ItemView {
 		const treeSection = container.createDiv('sl-tree-section');
 		const treeHeader = treeSection.createDiv('sl-section-header');
 		treeHeader.createEl('h4', { text: 'Cuentas' });
-		const gearBtn = treeHeader.createEl('button', { text: '⚙', cls: 'sl-gear-btn', attr: { title: 'Gestionar cuentas' } });
+		const treeActions = treeHeader.createDiv('sl-section-header-actions');
+		const collapseBtn = treeActions.createEl('button', {
+			text: this.treeCollapsed ? '▶' : '▼',
+			cls: 'sl-gear-btn',
+			attr: { title: this.treeCollapsed ? 'Expandir todo' : 'Colapsar todo' },
+		});
+		collapseBtn.addEventListener('click', () => { this.treeCollapsed = !this.treeCollapsed; this.render(); });
+		const gearBtn = treeActions.createEl('button', { text: '⚙', cls: 'sl-gear-btn', attr: { title: 'Gestionar cuentas' } });
 		gearBtn.addEventListener('click', () => {
 			new ManageAccountsModal(this.app, this.plugin).open();
 		});
-		this._renderTree(treeSection, tree, 0);
+		this._renderTree(treeSection, tree, 0, '', this.treeCollapsed);
 
 		// Recent transactions — paginadas
 		const sorted = [...txs].reverse();
@@ -162,18 +171,40 @@ export class LedgerSidebarView extends ItemView {
 			});
 		}
 
-		if (totalPages > 1) {
-			const pagBar = recentSection.createDiv('sl-pagination');
-			const prevBtn = pagBar.createEl('button', { text: '‹', cls: 'sl-page-btn', attr: { title: 'Anterior' } });
-			prevBtn.disabled = this.txPage === 0;
-			prevBtn.addEventListener('click', () => { this.txPage--; this.render(); });
+		this._renderPagination(recentSection, this.txPage, totalPages, (p) => { this.txPage = p; this.render(); });
+	}
 
-			pagBar.createSpan({ text: `${this.txPage + 1} / ${totalPages}`, cls: 'sl-page-info' });
+	private _renderPagination(parent: HTMLElement, page: number, totalPages: number, onChange: (p: number) => void): void {
+		if (totalPages <= 1) return;
+		const bar = parent.createDiv('sl-pagination');
 
-			const nextBtn = pagBar.createEl('button', { text: '›', cls: 'sl-page-btn', attr: { title: 'Siguiente' } });
-			nextBtn.disabled = this.txPage >= totalPages - 1;
-			nextBtn.addEventListener('click', () => { this.txPage++; this.render(); });
+		const prev = bar.createEl('button', { text: '‹', cls: 'sl-page-btn', attr: { title: 'Anterior' } });
+		prev.disabled = page === 0;
+		prev.addEventListener('click', () => onChange(page - 1));
+
+		const maxBtns = 5;
+		let start = Math.max(0, page - Math.floor(maxBtns / 2));
+		const end = Math.min(totalPages - 1, start + maxBtns - 1);
+		start = Math.max(0, end - maxBtns + 1);
+
+		if (start > 0) {
+			const b = bar.createEl('button', { text: '1', cls: 'sl-page-btn' });
+			b.addEventListener('click', () => onChange(0));
+			if (start > 1) bar.createSpan({ text: '…', cls: 'sl-page-ellipsis' });
 		}
+		for (let i = start; i <= end; i++) {
+			const b = bar.createEl('button', { text: String(i + 1), cls: `sl-page-btn${i === page ? ' sl-page-active' : ''}` });
+			b.addEventListener('click', () => onChange(i));
+		}
+		if (end < totalPages - 1) {
+			if (end < totalPages - 2) bar.createSpan({ text: '…', cls: 'sl-page-ellipsis' });
+			const b = bar.createEl('button', { text: String(totalPages), cls: 'sl-page-btn' });
+			b.addEventListener('click', () => onChange(totalPages - 1));
+		}
+
+		const next = bar.createEl('button', { text: '›', cls: 'sl-page-btn', attr: { title: 'Siguiente' } });
+		next.disabled = page >= totalPages - 1;
+		next.addEventListener('click', () => onChange(page + 1));
 	}
 
 	private _createCard(parent: HTMLElement, title: string, amount: number, cls: string): void {
@@ -182,7 +213,7 @@ export class LedgerSidebarView extends ItemView {
 		card.createDiv({ text: fmtAmount(amount, this.plugin.settings), cls: 'sl-card-amount' });
 	}
 
-	private _renderTree(container: HTMLElement, tree: BalanceTree, depth: number, prefix = ''): void {
+	private _renderTree(container: HTMLElement, tree: BalanceTree, depth: number, prefix = '', collapsed = false): void {
 		const settings = this.plugin.settings;
 		for (const [key, node] of Object.entries(tree)) {
 			const fullName = prefix ? `${prefix}:${key}` : key;
@@ -194,8 +225,8 @@ export class LedgerSidebarView extends ItemView {
 				cls: `sl-tree-amount ${acctColor(fullName, node._total)}`,
 			});
 			const hasChildren = Object.keys(node._children).length > 0;
-			if (hasChildren) {
-				this._renderTree(container, node._children, depth + 1, fullName);
+			if (hasChildren && !collapsed) {
+				this._renderTree(container, node._children, depth + 1, fullName, false);
 			}
 		}
 	}

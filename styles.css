@@ -212,6 +212,15 @@
   opacity: 0.85;
 }
 
+.sl-btn-active {
+  background: var(--background-modifier-border);
+  color: var(--text-normal);
+}
+
+.sl-btn-has-filter {
+  color: var(--interactive-accent);
+}
+
 /* Empty state */
 .sl-empty {
   text-align: center;
@@ -253,17 +262,50 @@
 }
 
 .sl-card-title {
-  font-size: 0.75em;
+  font-size: 0.72em;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--text-muted);
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .sl-card-amount {
-  font-size: 1.1em;
+  font-size: 1.15em;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.sl-card-sublabel {
+  font-size: 0.7em;
+  color: var(--text-faint);
+  margin-top: 2px;
+  margin-bottom: 6px;
+}
+
+.sl-card-divider {
+  height: 1px;
+  background: var(--background-modifier-border);
+  margin-bottom: 6px;
+  opacity: 0.5;
+}
+
+.sl-card-total-row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.sl-card-total-amount {
+  font-size: 0.82em;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.sl-card-total-label {
+  font-size: 0.68em;
+  color: var(--text-faint);
 }
 
 .sl-card-income .sl-card-amount { color: #4caf50; }
@@ -285,6 +327,12 @@
 
 .sl-section-header h4 {
   margin: 0;
+}
+
+.sl-section-header-actions {
+  display: flex;
+  gap: 2px;
+  align-items: center;
 }
 
 .sl-tree-section h4,
@@ -371,6 +419,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 0.95em;
+  color: var(--text-normal);
 }
 
 .sl-tx-amount {
@@ -400,6 +450,65 @@
 
 .sl-tx-clickable:hover .sl-tx-edit-icon {
   opacity: 1;
+}
+
+/* Transaction notes in sidebar */
+.sl-tx-note-text {
+  font-size: 0.78em;
+  color: var(--text-faint);
+  padding: 1px 8px 4px;
+  line-height: 1.3;
+  font-style: italic;
+}
+
+/* Pagination */
+.sl-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 8px 4px;
+  flex-wrap: wrap;
+}
+
+.sl-page-btn {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 6px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.85em;
+  transition: background 0.15s, color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sl-page-btn:hover:not(:disabled) {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.sl-page-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.sl-page-btn.sl-page-active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: var(--interactive-accent);
+  font-weight: 600;
+}
+
+.sl-page-ellipsis {
+  color: var(--text-faint);
+  font-size: 0.85em;
+  padding: 0 2px;
+  line-height: 30px;
 }
 
 /* Show all button */
@@ -646,9 +755,51 @@
   gap: 8px;
 }
 
-.sl-main-add-btn {
-  font-size: 0.9em;
-  padding: 7px 16px;
+/* Icon-only buttons */
+.sl-icon-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.sl-icon-btn svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 1.8;
+}
+
+.sl-icon-btn:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.sl-icon-btn.mod-cta {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: var(--interactive-accent);
+}
+
+.sl-icon-btn.mod-cta:hover {
+  opacity: 0.88;
+}
+
+.sl-icon-btn.sl-btn-active {
+  background: var(--background-modifier-border);
+  color: var(--text-normal);
+}
+
+.sl-icon-btn.sl-btn-has-filter svg {
+  color: var(--interactive-accent);
 }
 
 /* Filter bar */
@@ -876,6 +1027,95 @@
   background: var(--interactive-accent);
   color: var(--text-on-accent);
   border-color: var(--interactive-accent);
+}
+
+.sl-chart-period-note {
+  font-size: 0.72em;
+  color: var(--text-faint);
+  margin-left: auto;
+  align-self: center;
+}
+
+/* Debts block */
+.sl-debts-header {
+  margin-bottom: 10px;
+  font-size: 0.9em;
+}
+
+.sl-debts-count {
+  color: var(--text-muted);
+}
+
+.sl-debts-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88em;
+}
+
+.sl-debts-table th {
+  text-align: left;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  color: var(--text-muted);
+  font-size: 0.82em;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.sl-debt-row td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--background-modifier-border-hover);
+  vertical-align: middle;
+}
+
+.sl-debt-today {
+  background: rgba(255, 152, 0, 0.1);
+}
+
+.sl-debt-today td:first-child {
+  border-left: 3px solid #ff9800;
+}
+
+.sl-debt-today-dot {
+  color: #ff9800;
+  font-size: 0.7em;
+}
+
+.sl-debt-paid td {
+  opacity: 0.45;
+}
+
+.sl-debt-date {
+  white-space: nowrap;
+  font-size: 0.85em;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-debt-today .sl-debt-date {
+  color: #ff9800;
+  font-weight: 600;
+}
+
+.sl-debt-name {
+  font-weight: 500;
+}
+
+.sl-debt-freq {
+  color: var(--text-muted);
+  font-size: 0.85em;
+}
+
+.sl-debt-amount {
+  font-weight: 600;
+  color: #f44336;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-debt-account {
+  color: var(--text-muted);
+  font-size: 0.82em;
 }
 
 .sl-pie-controls {
@@ -2192,6 +2432,143 @@
   border: none;
   border-top: 1px solid var(--background-modifier-border);
   margin: 6px 0;
+}
+
+/* ─── Status bar ──────────────────────────────────────────────────────────── */
+
+.sl-status-bar-debts {
+  cursor: pointer;
+  font-size: 0.78em;
+  padding: 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: 4px;
+  color: var(--text-muted);
+  transition: color 0.15s;
+}
+
+.sl-status-bar-debts:hover {
+  color: var(--text-normal);
+}
+
+.sl-status-bar-debts.sl-status-urgent {
+  color: #ff9800;
+  font-weight: 600;
+}
+
+.sl-status-bar-debts.sl-status-soon {
+  color: var(--text-muted);
+}
+
+.sl-status-ok {
+  color: var(--text-faint);
+}
+
+/* ─── Debts modal ─────────────────────────────────────────────────────────── */
+
+.sl-debts-modal h2 {
+  margin-bottom: 16px;
+}
+
+.sl-debts-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.sl-debts-modal-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+}
+
+.sl-debts-modal-today {
+  background: rgba(255, 152, 0, 0.1);
+  border-color: rgba(255, 152, 0, 0.4);
+}
+
+.sl-debts-modal-paid {
+  opacity: 0.45;
+}
+
+.sl-debts-modal-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.sl-debts-modal-date {
+  font-size: 0.85em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  white-space: nowrap;
+  min-width: 44px;
+}
+
+.sl-debts-modal-today .sl-debts-modal-date {
+  font-weight: 700;
+}
+
+.sl-debts-today-dot {
+  color: #ff9800;
+}
+
+.sl-debts-today-text {
+  color: #ff9800;
+}
+
+.sl-debts-modal-info {
+  min-width: 0;
+}
+
+.sl-debts-modal-payee {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+.sl-debts-modal-freq {
+  font-size: 0.78em;
+  color: var(--text-faint);
+}
+
+.sl-debts-modal-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.sl-debts-modal-amount {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #f44336;
+  font-size: 1em;
+}
+
+.sl-debts-modal-pay-btn {
+  font-size: 0.8em;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.sl-debts-modal-paid-badge {
+  font-size: 0.78em;
+  color: #4caf50;
+  font-weight: 500;
 }
 
 /* ─── Responsive ─────────────────────────────────────────────────────────── */

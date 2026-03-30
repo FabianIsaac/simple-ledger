@@ -1,4 +1,6 @@
 import { Notice, Plugin, TFile } from 'obsidian';
+import { getNextDueDate, isRecurringPaidThisPeriod } from './utils/recurring';
+import { DebtsModal } from './modals/DebtsModal';
 import { DEFAULT_SETTINGS, VIEW_TYPE_LEDGER, VIEW_TYPE_LEDGER_MAIN, VIEW_TYPE_RECURRING, VIEW_TYPE_QUICK_ADD } from './constants';
 import { PluginSettings, Transaction, AddTransactionData, RecurringTransaction } from './types';
 import { LedgerParser } from './parser/LedgerParser';
@@ -20,11 +22,13 @@ import { renderSummaryBlock } from './renderers/summaryBlock';
 import { renderPieBlock } from './renderers/pieBlock';
 import { renderCashflowBlock } from './renderers/cashflowBlock';
 import { renderBarBlock } from './renderers/barBlock';
+import { renderDebtsBlock } from './renderers/debtsBlock';
 
 export default class SimpleLedgerPlugin extends Plugin {
 	settings!: PluginSettings;
 	transactions: Transaction[] = [];
 	private _loadingPromise: Promise<Transaction[]> | null = null;
+	private _statusBarItem: HTMLElement | null = null;
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
@@ -37,9 +41,14 @@ export default class SimpleLedgerPlugin extends Plugin {
 		this.registerView(VIEW_TYPE_RECURRING, (leaf) => new RecurringSidebarView(leaf, this));
 		this.registerView(VIEW_TYPE_QUICK_ADD, (leaf) => new QuickAddView(leaf, this));
 
-		// Ribbon icon
-		this.addRibbonIcon('wallet', 'Simple Ledger', () => {
-			this.activateView();
+		// Ribbon icons
+		this.addRibbonIcon('wallet', 'Simple Ledger — Abrir panel', () => {
+			this.activateMainView();
+		});
+		this.addRibbonIcon('plus-circle', 'Simple Ledger — Nueva transaccion', () => {
+			new AddTransactionModal(this.app, this, (data) => {
+				this.addTransaction(data);
+			}).open();
 		});
 
 		// Commands
@@ -235,8 +244,21 @@ export default class SimpleLedgerPlugin extends Plugin {
 			});
 		});
 
+		this.registerMarkdownCodeBlockProcessor('ledger-debts', (source, el) => {
+			this.loadTransactions().then(() => {
+				renderDebtsBlock(el, this, source.trim());
+			});
+		});
+
 		// Settings tab
 		this.addSettingTab(new LedgerSettingTab(this.app, this));
+
+		// Status bar — vencimientos
+		this._statusBarItem = this.addStatusBarItem();
+		this._statusBarItem.addClass('sl-status-bar-debts');
+		this._statusBarItem.addEventListener('click', () => {
+			new DebtsModal(this.app, this).open();
+		});
 
 		// Auto-recarga cuando el archivo .ledger cambia (sincronización entre dispositivos)
 		this.registerEvent(
@@ -265,6 +287,8 @@ export default class SimpleLedgerPlugin extends Plugin {
 		if (!this.settings.recurringTransactions) this.settings.recurringTransactions = [];
 		if (!this.settings.credits) this.settings.credits = [];
 		if (!this.settings.savedFilters) this.settings.savedFilters = { from: '', to: '', account: '', search: '' };
+		if (this.settings.showStatusBarDebts === undefined) this.settings.showStatusBarDebts = true;
+		if (!this.settings.statusBarLookaheadDays) this.settings.statusBarLookaheadDays = 7;
 	}
 
 	async saveSettings(): Promise<void> {
@@ -290,6 +314,7 @@ export default class SimpleLedgerPlugin extends Plugin {
 			} finally {
 				this._loadingPromise = null;
 			}
+			this._updateStatusBar();
 			return this.transactions;
 		})();
 		return this._loadingPromise;
@@ -562,6 +587,47 @@ export default class SimpleLedgerPlugin extends Plugin {
 		}
 		for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_RECURRING)) {
 			if (leaf.view instanceof RecurringSidebarView) leaf.view.render();
+		}
+		this._updateStatusBar();
+	}
+
+	_updateStatusBar(): void {
+		if (!this._statusBarItem) return;
+		this._statusBarItem.empty();
+		this._statusBarItem.removeClass('sl-status-urgent', 'sl-status-soon');
+
+		if (!this.settings.showStatusBarDebts) return;
+
+		const recs = this.settings.recurringTransactions ?? [];
+		const txs = this.transactions ?? [];
+		const today = todayStr();
+		const days = this.settings.statusBarLookaheadDays ?? 7;
+
+		const cutoffDate = new Date();
+		cutoffDate.setDate(cutoffDate.getDate() + days);
+		const cutoff = `${cutoffDate.getFullYear()}/${String(cutoffDate.getMonth() + 1).padStart(2, '0')}/${String(cutoffDate.getDate()).padStart(2, '0')}`;
+
+		const pending = recs
+			.map(rec => ({ rec, nextDue: getNextDueDate(rec), isPaid: isRecurringPaidThisPeriod(rec, txs) }))
+			.filter(({ isPaid, nextDue }) => !isPaid && nextDue <= cutoff);
+
+		const dueToday = pending.filter(({ nextDue }) => nextDue === today);
+		const dueSoon = pending.filter(({ nextDue }) => nextDue !== today);
+
+		if (dueToday.length > 0) {
+			this._statusBarItem.addClass('sl-status-urgent');
+			this._statusBarItem.createSpan({ text: '● ', cls: 'sl-status-dot' });
+			this._statusBarItem.createSpan({
+				text: `${dueToday.length} vence${dueToday.length > 1 ? 'n' : ''} hoy`,
+			});
+		} else if (dueSoon.length > 0) {
+			this._statusBarItem.addClass('sl-status-soon');
+			this._statusBarItem.createSpan({ text: '○ ', cls: 'sl-status-dot' });
+			this._statusBarItem.createSpan({
+				text: `${dueSoon.length} próxima${dueSoon.length > 1 ? 's' : ''}`,
+			});
+		} else {
+			this._statusBarItem.createSpan({ text: '✓ Al día', cls: 'sl-status-ok' });
 		}
 	}
 

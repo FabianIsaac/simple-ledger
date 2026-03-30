@@ -92,5 +92,31 @@ export class LedgerSettingTab extends PluginSettingTab {
 				.onClick(() => {
 					new ManageAccountsModal(this.app, this.plugin).open();
 				}));
+
+		containerEl.createEl('h3', { text: 'Barra de estado' });
+
+		new Setting(containerEl)
+			.setName('Mostrar vencimientos en barra de estado')
+			.setDesc('Muestra un indicador en la parte inferior de Obsidian con las cuentas próximas a vencer')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.showStatusBarDebts ?? true)
+				.onChange(async (value) => {
+					this.plugin.settings.showStatusBarDebts = value;
+					await this.plugin.saveSettings();
+					(this.plugin as any)._updateStatusBar();
+				}));
+
+		new Setting(containerEl)
+			.setName('Días de anticipación')
+			.setDesc('Cuántos días antes de vencer se muestra una cuenta como "próxima" en la barra de estado')
+			.addSlider(slider => slider
+				.setLimits(1, 30, 1)
+				.setValue(this.plugin.settings.statusBarLookaheadDays ?? 7)
+				.setDynamicTooltip()
+				.onChange(async (value) => {
+					this.plugin.settings.statusBarLookaheadDays = value;
+					await this.plugin.saveSettings();
+					(this.plugin as any)._updateStatusBar();
+				}));
 	}
 }

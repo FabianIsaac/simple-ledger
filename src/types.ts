@@ -72,6 +72,8 @@ export interface PluginSettings {
 		account: string;
 		search: string;
 	};
+	showStatusBarDebts: boolean;
+	statusBarLookaheadDays: number;
 }
 
 export interface BlockFilterOptions {

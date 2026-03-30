@@ -42,4 +42,6 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	recurringTransactions: [],
 	credits: [],
 	savedFilters: { from: '', to: '', account: '', search: '' },
+	showStatusBarDebts: true,
+	statusBarLookaheadDays: 7,
 };

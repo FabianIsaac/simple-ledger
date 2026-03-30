@@ -1,4 +1,4 @@
-import { ItemView, Notice, WorkspaceLeaf } from 'obsidian';
+import { ItemView, Notice, WorkspaceLeaf, setIcon } from 'obsidian';
 import { VIEW_TYPE_LEDGER_MAIN, ACCT } from '../constants';
 import { PluginSettings, Transaction, BalanceTree, AddTransactionData, RecurringTransaction, ISimpleLedgerPlugin } from '../types';
 import { LedgerParser } from '../parser/LedgerParser';
@@ -48,6 +48,7 @@ export class LedgerMainView extends ItemView {
 	private pieType: 'gastos' | 'ingresos';
 	private pieLevel: 1 | 2;
 	private txPage: number;
+	private filtersVisible: boolean;
 
 	constructor(leaf: WorkspaceLeaf, plugin: Plugin) {
 		super(leaf);
@@ -60,6 +61,7 @@ export class LedgerMainView extends ItemView {
 		this.pieType = 'gastos';
 		this.pieLevel = 1;
 		this.txPage = 0;
+		this.filtersVisible = false;
 	}
 
 	getViewType(): string { return VIEW_TYPE_LEDGER_MAIN; }
@@ -104,26 +106,40 @@ export class LedgerMainView extends ItemView {
 
 		// Action buttons in title row
 		const titleActions = titleRow.createDiv('sl-title-actions');
-		const addBtn = titleActions.createEl('button', { text: '+ Nueva', cls: 'mod-cta sl-main-add-btn' });
-		addBtn.addEventListener('click', () => {
+
+		const mkIconBtn = (icon: string, title: string, extraCls = '') => {
+			const btn = titleActions.createEl('button', { cls: `sl-icon-btn${extraCls ? ' ' + extraCls : ''}`, attr: { title } });
+			setIcon(btn, icon);
+			return btn;
+		};
+
+		mkIconBtn('plus', 'Nueva transaccion', 'mod-cta').addEventListener('click', () => {
 			new AddTransactionModal(this.app, this.plugin, (data) => {
 				this.plugin.addTransaction(data).then(() => this.render());
 			}).open();
 		});
-		const importBtn = titleActions.createEl('button', { text: '⬆ Importar', cls: 'sl-header-btn', attr: { title: 'Importar transacciones' } });
-		importBtn.addEventListener('click', () => {
+		mkIconBtn('upload', 'Importar transacciones').addEventListener('click', () => {
 			new ImportTransactionsModal(this.app, this.plugin, () => this.render()).open();
 		});
-		const refreshBtn = titleActions.createEl('button', { text: '↻', cls: 'sl-header-btn', attr: { title: 'Recargar' } });
-		refreshBtn.addEventListener('click', () => {
+		mkIconBtn('refresh-cw', 'Recargar').addEventListener('click', () => {
 			this.plugin.loadTransactions().then(() => this.render());
 		});
-		const csvBtn = titleActions.createEl('button', { text: '⬇ CSV', cls: 'sl-header-btn', attr: { title: 'Exportar a CSV' } });
-		csvBtn.addEventListener('click', () => this._exportCSV(txs));
+		mkIconBtn('download', 'Exportar a CSV').addEventListener('click', () => this._exportCSV(txs));
 
-		this._renderFilters(header, allTxs);
+		const hasActiveFilters = Object.values(this.filters).some(v => v !== '');
+		const filterToggle = mkIconBtn(
+			'sliders-horizontal',
+			'Mostrar/ocultar filtros',
+			`${this.filtersVisible ? 'sl-btn-active' : ''}${hasActiveFilters ? ' sl-btn-has-filter' : ''}`,
+		);
+		filterToggle.addEventListener('click', () => {
+			this.filtersVisible = !this.filtersVisible;
+			this.render();
+		});
 
-		// Summary cards
+		if (this.filtersVisible) this._renderFilters(header, allTxs);
+
+		// Summary cards — monthly + total
 		const balances = LedgerParser.computeBalances(txs);
 		const excluded = settings.excludedFromBalance ?? [];
 		const isExcluded = (acct: string) => excluded.some(ex => acct === ex || acct.startsWith(ex + ':'));
@@ -133,11 +149,21 @@ export class LedgerMainView extends ItemView {
 		const totalAssets = Object.entries(liquid).filter(([k]) => k.startsWith(ACCT.assets)).reduce((s, [, v]) => s + v, 0);
 		const totalLiabilities = Object.entries(liquid).filter(([k]) => k.startsWith(ACCT.liabilities)).reduce((s, [, v]) => s + Math.abs(v), 0);
 
+		const now = new Date();
+		const currentMonth = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}`;
+		const allTxsForMonth = (this.plugin.transactions ?? []).filter(t => t.date.startsWith(currentMonth));
+		const monthBalances = LedgerParser.computeBalances(allTxsForMonth);
+		const monthLiquid = Object.fromEntries(Object.entries(monthBalances).filter(([k]) => !isExcluded(k)));
+		const monthIncome = Object.entries(monthLiquid).filter(([k]) => k.startsWith(ACCT.income)).reduce((s, [, v]) => s + Math.abs(v), 0);
+		const monthExpenses = Object.entries(monthLiquid).filter(([k]) => k.startsWith(ACCT.expenses)).reduce((s, [, v]) => s + Math.abs(v), 0);
+		const monthAssets = Object.entries(monthLiquid).filter(([k]) => k.startsWith(ACCT.assets)).reduce((s, [, v]) => s + v, 0);
+		const monthLiabilities = Object.entries(monthLiquid).filter(([k]) => k.startsWith(ACCT.liabilities)).reduce((s, [, v]) => s + Math.abs(v), 0);
+
 		const cards = container.createDiv('sl-main-cards');
-		this._card(cards, 'Ingresos', totalIncome, 'sl-card-income');
-		this._card(cards, 'Gastos', totalExpenses, 'sl-card-expense');
-		this._card(cards, 'Balance', totalAssets, 'sl-card-balance');
-		this._card(cards, 'Deudas', totalLiabilities, 'sl-card-liability');
+		this._card(cards, 'Ingresos', monthIncome, totalIncome, 'sl-card-income');
+		this._card(cards, 'Gastos', monthExpenses, totalExpenses, 'sl-card-expense');
+		this._card(cards, 'Balance', monthAssets, totalAssets, 'sl-card-balance');
+		this._card(cards, 'Deudas', monthLiabilities, totalLiabilities, 'sl-card-liability');
 
 		// Two-column layout
 		const content = container.createDiv('sl-main-content');
@@ -250,7 +276,17 @@ export class LedgerMainView extends ItemView {
 		pieTab.addEventListener('click', () => { this.chartMode = 'pie'; this.render(); });
 
 		if (this.chartMode === 'cashflow') {
-			this._renderCashflowChart(section, filteredTxs);
+			const hasDateFilter = !!(this.filters.from || this.filters.to);
+			const now = new Date();
+			const currentMonth = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}`;
+			const chartTxs = hasDateFilter
+				? filteredTxs
+				: filteredTxs.filter(t => t.date.startsWith(currentMonth));
+			if (!hasDateFilter) {
+				const note = chartHeader.createDiv('sl-chart-period-note');
+				note.setText('Mes actual • Aplica un filtro de fecha para ver otro período');
+			}
+			this._renderCashflowChart(section, chartTxs);
 		} else {
 			// Pie sub-controls
 			const pieControls = section.createDiv('sl-pie-controls');
@@ -495,19 +531,42 @@ export class LedgerMainView extends ItemView {
 			});
 		}
 
-		if (totalPages > 1) {
-			const pagBar = section.createDiv('sl-pagination');
-			const prevBtn = pagBar.createEl('button', { text: '‹', cls: 'sl-page-btn', attr: { title: 'Anterior' } });
-			prevBtn.disabled = this.txPage === 0;
-			prevBtn.addEventListener('click', () => { this.txPage--; this.render(); });
-
-			pagBar.createSpan({ text: `${this.txPage + 1} / ${totalPages}`, cls: 'sl-page-info' });
-
-			const nextBtn = pagBar.createEl('button', { text: '›', cls: 'sl-page-btn', attr: { title: 'Siguiente' } });
-			nextBtn.disabled = this.txPage >= totalPages - 1;
-			nextBtn.addEventListener('click', () => { this.txPage++; this.render(); });
-		}
+		this._renderPagination(section, this.txPage, totalPages, (p) => { this.txPage = p; this.render(); });
 	}
+
+	private _renderPagination(parent: HTMLElement, page: number, totalPages: number, onChange: (p: number) => void): void {
+		if (totalPages <= 1) return;
+		const bar = parent.createDiv('sl-pagination');
+
+		const prev = bar.createEl('button', { text: '‹', cls: 'sl-page-btn', attr: { title: 'Anterior' } });
+		prev.disabled = page === 0;
+		prev.addEventListener('click', () => onChange(page - 1));
+
+		const maxBtns = 5;
+		let start = Math.max(0, page - Math.floor(maxBtns / 2));
+		const end = Math.min(totalPages - 1, start + maxBtns - 1);
+		start = Math.max(0, end - maxBtns + 1);
+
+		if (start > 0) {
+			const b = bar.createEl('button', { text: '1', cls: 'sl-page-btn' });
+			b.addEventListener('click', () => onChange(0));
+			if (start > 1) bar.createSpan({ text: '…', cls: 'sl-page-ellipsis' });
+		}
+		for (let i = start; i <= end; i++) {
+			const b = bar.createEl('button', { text: String(i + 1), cls: `sl-page-btn${i === page ? ' sl-page-active' : ''}` });
+			b.addEventListener('click', () => onChange(i));
+		}
+		if (end < totalPages - 1) {
+			if (end < totalPages - 2) bar.createSpan({ text: '…', cls: 'sl-page-ellipsis' });
+			const b = bar.createEl('button', { text: String(totalPages), cls: 'sl-page-btn' });
+			b.addEventListener('click', () => onChange(totalPages - 1));
+		}
+
+		const next = bar.createEl('button', { text: '›', cls: 'sl-page-btn', attr: { title: 'Siguiente' } });
+		next.disabled = page >= totalPages - 1;
+		next.addEventListener('click', () => onChange(page + 1));
+	}
+
 
 	private _renderAccountPanel(parent: HTMLElement, balances: Record<string, number>): void {
 		const section = parent.createDiv('sl-main-accounts');
@@ -684,10 +743,16 @@ export class LedgerMainView extends ItemView {
 		nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addBtn.click(); });
 	}
 
-	private _card(parent: HTMLElement, title: string, amount: number, cls: string): void {
+	private _card(parent: HTMLElement, title: string, monthAmount: number, totalAmount: number, cls: string): void {
+		const s = this.plugin.settings;
 		const card = parent.createDiv(`sl-card ${cls}`);
 		card.createDiv({ text: title, cls: 'sl-card-title' });
-		card.createDiv({ text: fmtAmount(amount, this.plugin.settings), cls: 'sl-card-amount' });
+		card.createDiv({ text: fmtAmount(monthAmount, s), cls: 'sl-card-amount' });
+		card.createDiv({ text: 'este mes', cls: 'sl-card-sublabel' });
+		card.createDiv({ cls: 'sl-card-divider' });
+		const totalRow = card.createDiv('sl-card-total-row');
+		totalRow.createSpan({ text: fmtAmount(totalAmount, s), cls: 'sl-card-total-amount' });
+		totalRow.createSpan({ text: 'total', cls: 'sl-card-total-label' });
 	}
 
 	private async _openDailyNote(date: string): Promise<void> {

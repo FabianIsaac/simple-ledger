@@ -16,6 +16,8 @@ function makeSettings(overrides: Partial<PluginSettings> = {}): PluginSettings {
 		recurringTransactions: [],
 		credits: [],
 		savedFilters: { from: '', to: '', account: '', search: '' },
+		showStatusBarDebts: true,
+		statusBarLookaheadDays: 7,
 		...overrides,
 	};
 }
