@@ -1846,6 +1846,11 @@
   color: var(--text-muted);
 }
 
+.sl-rec-overdue {
+  color: #f44336;
+  font-weight: 600;
+}
+
 .sl-rec-status-paid {
   color: #4caf50;
   font-size: 0.82em;

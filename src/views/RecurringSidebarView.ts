@@ -58,11 +58,10 @@ export class RecurringSidebarView extends ItemView {
 		});
 
 		// Summary cards
-		const withStatus = recs.map(rec => ({
-			rec,
-			isPaid: isRecurringPaidThisPeriod(rec, txs),
-			nextDue: getNextDueDate(rec),
-		}));
+		const withStatus = recs.map(rec => {
+			const isPaid = isRecurringPaidThisPeriod(rec, txs);
+			return { rec, isPaid, nextDue: getNextDueDate(rec, txs) };
+		});
 		const pendingCount = withStatus.filter(r => !r.isPaid).length;
 		const paidCount = withStatus.filter(r => r.isPaid).length;
 		const totalMonthly = recs
@@ -164,7 +163,12 @@ export class RecurringSidebarView extends ItemView {
 			if (isPaid) {
 				metaDiv.createSpan({ text: '✓ Pagada', cls: 'sl-rec-sb-paid-badge' });
 			} else {
-				metaDiv.createSpan({ text: nextDue.substring(5), cls: 'sl-rec-due' });
+				const today = todayStr();
+				const isOverdue = nextDue < today;
+				metaDiv.createSpan({
+					text: (isOverdue ? '⚠ Vencida ' : '') + nextDue.substring(5),
+					cls: 'sl-rec-due' + (isOverdue ? ' sl-rec-overdue' : ''),
+				});
 			}
 
 			if (isCredit && rec._principalPortion && rec._interestPortion) {

@@ -50,6 +50,7 @@ export class LedgerMainView extends ItemView {
 	private txPage: number;
 	private txSortOrder: 'desc' | 'asc';
 	private filtersVisible: boolean;
+	private _refocusSearch: boolean;
 
 	constructor(leaf: WorkspaceLeaf, plugin: Plugin) {
 		super(leaf);
@@ -64,6 +65,7 @@ export class LedgerMainView extends ItemView {
 		this.txPage = 0;
 		this.txSortOrder = 'desc';
 		this.filtersVisible = false;
+		this._refocusSearch = false;
 	}
 
 	getViewType(): string { return VIEW_TYPE_LEDGER_MAIN; }
@@ -120,11 +122,11 @@ export class LedgerMainView extends ItemView {
 				this.plugin.addTransaction(data).then(() => this.render());
 			}).open();
 		});
-		mkIconBtn('upload', 'Importar transacciones').addEventListener('click', () => {
-			new ImportTransactionsModal(this.app, this.plugin, () => this.render()).open();
-		});
 		mkIconBtn('refresh-cw', 'Recargar').addEventListener('click', () => {
 			this.plugin.loadTransactions().then(() => this.render());
+		});
+		mkIconBtn('upload', 'Importar transacciones').addEventListener('click', () => {
+			new ImportTransactionsModal(this.app, this.plugin, () => this.render()).open();
 		});
 		mkIconBtn('download', 'Exportar a CSV').addEventListener('click', () => this._exportCSV(txs));
 
@@ -180,6 +182,16 @@ export class LedgerMainView extends ItemView {
 		this._renderTransactionsTable(leftCol, txs);
 		this._renderAccountPanel(rightCol, balances);
 		this._renderRecurring(rightCol);
+
+		if (this._refocusSearch) {
+			this._refocusSearch = false;
+			const searchEl = container.querySelector<HTMLInputElement>('.sl-filter-input[type="text"]');
+			if (searchEl) {
+				searchEl.focus();
+				const len = searchEl.value.length;
+				searchEl.setSelectionRange(len, len);
+			}
+		}
 	}
 
 	applyFilters(partial: Partial<Filters>): void {
@@ -240,6 +252,7 @@ export class LedgerMainView extends ItemView {
 			clearTimeout(searchTimeout);
 			searchTimeout = setTimeout(() => {
 				this.filters.search = (e.target as HTMLInputElement).value;
+				this._refocusSearch = true;
 				this._saveAndRender();
 			}, 300);
 		});
@@ -247,20 +260,24 @@ export class LedgerMainView extends ItemView {
 		const quickGroup = bar.createDiv('sl-filter-quick');
 		const quickBtns = [
 			{ label: 'Hoy', fn: () => { const t = todayStr(); this.filters.from = t; this.filters.to = t; } },
-			{ label: 'Este mes', fn: () => {
-				const now = new Date();
-				const y = now.getFullYear();
-				const m = String(now.getMonth() + 1).padStart(2, '0');
-				this.filters.from = `${y}/${m}/01`;
-				const last = new Date(y, now.getMonth() + 1, 0).getDate();
-				this.filters.to = `${y}/${m}/${String(last).padStart(2, '0')}`;
-			}},
-			{ label: 'Este año', fn: () => {
-				const y = new Date().getFullYear();
-				this.filters.from = `${y}/01/01`;
-				this.filters.to = `${y}/12/31`;
-			}},
-			{ label: 'Todo', fn: () => { this.filters.from = ''; this.filters.to = ''; this.filters.account = ''; this.filters.search = ''; }},
+			{
+				label: 'Este mes', fn: () => {
+					const now = new Date();
+					const y = now.getFullYear();
+					const m = String(now.getMonth() + 1).padStart(2, '0');
+					this.filters.from = `${y}/${m}/01`;
+					const last = new Date(y, now.getMonth() + 1, 0).getDate();
+					this.filters.to = `${y}/${m}/${String(last).padStart(2, '0')}`;
+				}
+			},
+			{
+				label: 'Este año', fn: () => {
+					const y = new Date().getFullYear();
+					this.filters.from = `${y}/01/01`;
+					this.filters.to = `${y}/12/31`;
+				}
+			},
+			{ label: 'Todo', fn: () => { this.filters.from = ''; this.filters.to = ''; this.filters.account = ''; this.filters.search = ''; } },
 		];
 		for (const q of quickBtns) {
 			const btn = quickGroup.createEl('button', { text: q.label, cls: 'sl-quick-btn' });
@@ -380,9 +397,10 @@ export class LedgerMainView extends ItemView {
 			return;
 		}
 
-		const withStatus = recs.map(rec => ({
-			rec, isPaid: isRecurringPaidThisPeriod(rec, txs), nextDue: getNextDueDate(rec),
-		}));
+		const withStatus = recs.map(rec => {
+			const isPaid = isRecurringPaidThisPeriod(rec, txs);
+			return { rec, isPaid, nextDue: getNextDueDate(rec, txs) };
+		});
 
 		const pending = withStatus.filter(r => !r.isPaid).sort((a, b) => a.nextDue.localeCompare(b.nextDue));
 		const paid = withStatus.filter(r => r.isPaid);
@@ -693,10 +711,10 @@ export class LedgerMainView extends ItemView {
 		const settings = this.plugin.settings;
 
 		const categories: { key: 'expenses' | 'income' | 'assets' | 'liabilities'; label: string; prefix: string }[] = [
-			{ key: 'expenses',    label: 'Gastos',    prefix: 'Gastos' },
-			{ key: 'income',      label: 'Ingresos',  prefix: 'Ingresos' },
-			{ key: 'assets',      label: 'Activos',   prefix: 'Activos' },
-			{ key: 'liabilities', label: 'Pasivos',   prefix: 'Pasivos' },
+			{ key: 'expenses', label: 'Gastos', prefix: 'Gastos' },
+			{ key: 'income', label: 'Ingresos', prefix: 'Ingresos' },
+			{ key: 'assets', label: 'Activos', prefix: 'Activos' },
+			{ key: 'liabilities', label: 'Pasivos', prefix: 'Pasivos' },
 		];
 
 		// Tabs
@@ -882,5 +900,5 @@ export class LedgerMainView extends ItemView {
 		new Notice(`CSV exportado: ${sorted.length} transacciones`);
 	}
 
-	async onClose(): Promise<void> {}
+	async onClose(): Promise<void> { }
 }

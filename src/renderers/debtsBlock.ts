@@ -18,12 +18,11 @@ export function renderDebtsBlock(el: HTMLElement, plugin: ISimpleLedgerPlugin, s
 	const cutoff = `${cutoffDate.getFullYear()}/${String(cutoffDate.getMonth() + 1).padStart(2, '0')}/${String(cutoffDate.getDate()).padStart(2, '0')}`;
 
 	const upcoming = recs
-		.map(rec => ({
-			rec,
-			nextDue: getNextDueDate(rec),
-			isPaid: isRecurringPaidThisPeriod(rec, txs),
-		}))
-		.filter(({ nextDue }) => nextDue <= cutoff)
+		.map(rec => {
+			const isPaid = isRecurringPaidThisPeriod(rec, txs);
+			return { rec, isPaid, nextDue: getNextDueDate(rec, txs) };
+		})
+		.filter(({ isPaid, nextDue }) => !isPaid || nextDue <= cutoff)
 		.sort((a, b) => a.nextDue.localeCompare(b.nextDue));
 
 	const settings = plugin.settings;

@@ -160,10 +160,10 @@ describe('isRecurringPaidThisPeriod', () => {
 		expect(isRecurringPaidThisPeriod(rec, [tx])).toBe(true);
 	});
 
-	it('returns false when amount differs by more than 1', () => {
+	it('returns true even when amount differs (e.g. late fees) as long as payee and account match', () => {
 		const rec = makeRec({ payee: 'Alquiler', toAccount: 'Gastos:Alquiler', amount: 1000 });
-		const tx = makeTx('2024/03/05', 'Alquiler', 'Gastos:Alquiler', 500);
-		expect(isRecurringPaidThisPeriod(rec, [tx])).toBe(false);
+		const tx = makeTx('2024/03/05', 'Alquiler', 'Gastos:Alquiler', 1080); // paid with late fee
+		expect(isRecurringPaidThisPeriod(rec, [tx])).toBe(true);
 	});
 
 	// Weekly ───────────────────────────────────────────────────────────────
@@ -197,7 +197,7 @@ describe('isRecurringPaidThisPeriod', () => {
 
 	// Credit payments ──────────────────────────────────────────────────────
 
-	it('matches credit payments by principal portion, not full amount', () => {
+	it('matches credit payments by payee and account within the period', () => {
 		const rec = makeRec({
 			payee: 'Prestamo',
 			toAccount: 'Pasivos:Prestamo',
@@ -205,12 +205,11 @@ describe('isRecurringPaidThisPeriod', () => {
 			_isCreditPayment: true,
 			_principalPortion: 900,
 		});
-		// Credit posting only records the principal portion (900), not the full payment
 		const tx = makeTx('2024/03/05', 'Prestamo', 'Pasivos:Prestamo', 900);
 		expect(isRecurringPaidThisPeriod(rec, [tx])).toBe(true);
 	});
 
-	it('returns false for credit payment when principal portion does not match', () => {
+	it('returns false for credit payment when account does not match', () => {
 		const rec = makeRec({
 			payee: 'Prestamo',
 			toAccount: 'Pasivos:Prestamo',
@@ -218,7 +217,7 @@ describe('isRecurringPaidThisPeriod', () => {
 			_isCreditPayment: true,
 			_principalPortion: 900,
 		});
-		const tx = makeTx('2024/03/05', 'Prestamo', 'Pasivos:Prestamo', 500);
+		const tx = makeTx('2024/03/05', 'Prestamo', 'Gastos:Otros', 900); // wrong account
 		expect(isRecurringPaidThisPeriod(rec, [tx])).toBe(false);
 	});
 });
@@ -243,16 +242,28 @@ describe('getNextDueDate', () => {
 		expect(getNextDueDate(rec)).toBe('2024/03/20');
 	});
 
-	it('returns the due date in the next month when the day has already passed', () => {
-		// Today is March 15 → day 10 already passed this month
+	it('returns the overdue date (same month) when unpaid and day has already passed', () => {
+		// Today is March 15, day 10 passed — not paid → show March 10 (overdue)
 		const rec = makeRec({ frequency: 'monthly', dayOfMonth: 10 });
-		expect(getNextDueDate(rec)).toBe('2024/04/10');
+		expect(getNextDueDate(rec, false)).toBe('2024/03/10');
 	});
 
-	it('defaults to day 1 when dayOfMonth is not set (monthly)', () => {
-		// March 1 has passed → next is April 1
+	it('advances to next month when already paid and day has passed', () => {
+		// Today is March 15, day 10 passed — paid → advance to April 10
+		const rec = makeRec({ frequency: 'monthly', dayOfMonth: 10 });
+		expect(getNextDueDate(rec, true)).toBe('2024/04/10');
+	});
+
+	it('defaults to day 1 and shows overdue when dayOfMonth is not set and unpaid', () => {
+		// March 1 has passed, unpaid → March 1 (overdue)
 		const rec = makeRec({ frequency: 'monthly' });
-		expect(getNextDueDate(rec)).toBe('2024/04/01');
+		expect(getNextDueDate(rec, false)).toBe('2024/03/01');
+	});
+
+	it('defaults to day 1 and advances when paid', () => {
+		// March 1 has passed, paid → April 1
+		const rec = makeRec({ frequency: 'monthly' });
+		expect(getNextDueDate(rec, true)).toBe('2024/04/01');
 	});
 
 	// Yearly ───────────────────────────────────────────────────────────────
@@ -263,35 +274,52 @@ describe('getNextDueDate', () => {
 		expect(getNextDueDate(rec)).toBe('2024/06/15');
 	});
 
-	it('returns the due date in the next year when the date has already passed', () => {
-		// Today is March 15 → January 1 already passed this year
+	it('returns the overdue date (same year) when unpaid and date has already passed', () => {
+		// Today is March 15, Jan 1 passed — unpaid → Jan 1, 2024
 		const rec = makeRec({ frequency: 'yearly', dayOfMonth: 1, monthOfYear: 1 });
-		expect(getNextDueDate(rec)).toBe('2025/01/01');
+		expect(getNextDueDate(rec, false)).toBe('2024/01/01');
 	});
 
-	it('defaults to January 1 when monthOfYear and dayOfMonth are not set (yearly)', () => {
+	it('advances to next year when already paid and date has passed', () => {
+		// Today is March 15, Jan 1 passed — paid → Jan 1, 2025
+		const rec = makeRec({ frequency: 'yearly', dayOfMonth: 1, monthOfYear: 1 });
+		expect(getNextDueDate(rec, true)).toBe('2025/01/01');
+	});
+
+	it('defaults to January 1 and advances to next year when paid', () => {
 		const rec = makeRec({ frequency: 'yearly' });
-		// Jan 1, 2024 has passed → next is Jan 1, 2025
-		expect(getNextDueDate(rec)).toBe('2025/01/01');
+		expect(getNextDueDate(rec, true)).toBe('2025/01/01');
 	});
 
 	// Weekly ───────────────────────────────────────────────────────────────
 
-	it('returns next Monday when today is Friday (dayOfWeek = 1)', () => {
-		// Friday March 15 → next Monday is March 18
+	it('returns overdue Monday (this week) when today is Friday and unpaid', () => {
+		// Friday March 15, dayOfWeek=1 → diff=1-5=-4 → March 11 (overdue)
 		const rec = makeRec({ frequency: 'weekly', dayOfWeek: 1 });
-		expect(getNextDueDate(rec)).toBe('2024/03/18');
+		expect(getNextDueDate(rec, false)).toBe('2024/03/11');
 	});
 
-	it('returns next occurrence of the same weekday when today matches (wraps to next week)', () => {
-		// Friday March 15, dayOfWeek=5 (Friday) → diff=0 → +7 → March 22
+	it('returns next Monday when today is Friday and paid', () => {
+		// Friday March 15, dayOfWeek=1 → paid → March 18
+		const rec = makeRec({ frequency: 'weekly', dayOfWeek: 1 });
+		expect(getNextDueDate(rec, true)).toBe('2024/03/18');
+	});
+
+	it('returns today when target weekday matches today and unpaid', () => {
+		// Friday March 15, dayOfWeek=5 → diff=0 → March 15 (due today)
 		const rec = makeRec({ frequency: 'weekly', dayOfWeek: 5 });
-		expect(getNextDueDate(rec)).toBe('2024/03/22');
+		expect(getNextDueDate(rec, false)).toBe('2024/03/15');
 	});
 
-	it('returns next Tuesday when today is Friday', () => {
-		// Friday March 15, dayOfWeek=2 (Tuesday) → diff=2-5=-3 → -3+7=4 → March 19
+	it('returns next week when target weekday matches today and paid', () => {
+		// Friday March 15, dayOfWeek=5 → paid → March 22
+		const rec = makeRec({ frequency: 'weekly', dayOfWeek: 5 });
+		expect(getNextDueDate(rec, true)).toBe('2024/03/22');
+	});
+
+	it('returns overdue Tuesday (this week) when today is Friday and unpaid', () => {
+		// Friday March 15, dayOfWeek=2 → diff=2-5=-3 → March 12
 		const rec = makeRec({ frequency: 'weekly', dayOfWeek: 2 });
-		expect(getNextDueDate(rec)).toBe('2024/03/19');
+		expect(getNextDueDate(rec, false)).toBe('2024/03/12');
 	});
 });

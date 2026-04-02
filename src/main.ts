@@ -309,13 +309,23 @@ export default class SimpleLedgerPlugin extends Plugin {
 		this._loadingPromise = (async () => {
 			try {
 				const filePath = this.settings.ledgerFile;
+				let content: string | null = null;
+
+				// Intentar primero con el índice del vault (desktop)
 				const file = this.app.vault.getAbstractFileByPath(filePath);
-				if (file && file instanceof TFile) {
-					const content = await this.app.vault.read(file);
-					this.transactions = LedgerParser.parse(content);
+				if (file instanceof TFile) {
+					content = await this.app.vault.read(file);
 				} else {
-					this.transactions = [];
+					// Fallback: leer directo del adaptador (necesario en mobile donde
+					// el índice del vault puede no estar listo al abrir las vistas)
+					try {
+						content = await this.app.vault.adapter.read(filePath);
+					} catch {
+						content = null;
+					}
 				}
+
+				this.transactions = content ? LedgerParser.parse(content) : [];
 			} catch (e) {
 				console.error('Simple Ledger: error al leer transacciones', e);
 				this.transactions = [];
@@ -664,7 +674,7 @@ export default class SimpleLedgerPlugin extends Plugin {
 		const cutoff = `${cutoffDate.getFullYear()}/${String(cutoffDate.getMonth() + 1).padStart(2, '0')}/${String(cutoffDate.getDate()).padStart(2, '0')}`;
 
 		const pending = recs
-			.map(rec => ({ rec, nextDue: getNextDueDate(rec), isPaid: isRecurringPaidThisPeriod(rec, txs) }))
+			.map(rec => { const isPaid = isRecurringPaidThisPeriod(rec, txs); return { rec, isPaid, nextDue: getNextDueDate(rec, txs) }; })
 			.filter(({ isPaid, nextDue }) => !isPaid && nextDue <= cutoff);
 
 		const dueToday = pending.filter(({ nextDue }) => nextDue === today);
