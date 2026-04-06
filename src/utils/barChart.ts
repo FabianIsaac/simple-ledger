@@ -1,6 +1,7 @@
 import { Transaction, PluginSettings } from '../types';
 import { ACCT } from '../constants';
 import { fmtAmount } from './formatting';
+import { t } from '../i18n';
 
 function shortAmt(val: number, settings: PluginSettings): string {
 	const abs = Math.abs(val);
@@ -33,7 +34,7 @@ export function buildBarContent(
 	period: 'month' | 'year',
 ): void {
 	if (txs.length === 0) {
-		parent.createEl('p', { text: 'Sin datos para mostrar', cls: 'sl-empty-msg' });
+		parent.createEl('p', { text: t('common_empty_no_data'), cls: 'sl-empty-msg' });
 		return;
 	}
 
@@ -62,7 +63,7 @@ export function buildBarContent(
 		}));
 
 	if (points.length === 0) {
-		parent.createEl('p', { text: 'Sin datos para mostrar', cls: 'sl-empty-msg' });
+		parent.createEl('p', { text: t('common_empty_no_data'), cls: 'sl-empty-msg' });
 		return;
 	}
 
@@ -171,13 +172,13 @@ export function buildBarContent(
 	const legend = parent.createDiv('sl-chart-legend');
 	const legInc = legend.createSpan({ cls: 'sl-legend-item' });
 	legInc.createSpan({ cls: 'sl-legend-swatch sl-legend-income' });
-	legInc.createSpan({ text: ' Ingresos' });
+	legInc.createSpan({ text: t('chart_legend_income') });
 	const legExp = legend.createSpan({ cls: 'sl-legend-item' });
 	legExp.createSpan({ cls: 'sl-legend-swatch sl-legend-expense' });
-	legExp.createSpan({ text: ' Gastos' });
+	legExp.createSpan({ text: t('chart_legend_expenses') });
 	const legNet = legend.createSpan({ cls: 'sl-legend-item' });
 	legNet.createSpan({ cls: 'sl-legend-swatch sl-legend-net' });
-	legNet.createSpan({ text: ' Neto' });
+	legNet.createSpan({ text: t('chart_legend_net') });
 
 	parent.appendChild(svg);
 }

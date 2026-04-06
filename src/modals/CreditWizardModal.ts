@@ -1,5 +1,6 @@
 import { App, Modal, Notice } from 'obsidian';
 import { Credit, ISimpleLedgerPlugin } from '../types';
+import { t } from '../i18n';
 import { generateId } from '../utils/recurring';
 import { calculateCreditMonthlyAmounts } from '../utils/creditCalc';
 import { todayStr, fmtAmount } from '../utils/formatting';
@@ -36,21 +37,21 @@ export class CreditWizardModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.addClass('simple-ledger-modal');
-		contentEl.createEl('h2', { text: this.isEditing ? 'Editar credito' : 'Nuevo credito' });
+		contentEl.createEl('h2', { text: this.isEditing ? t('modal_credit_edit_title') : t('modal_credit_new_title') });
 
 		const sym = this.plugin.settings.currencySymbol;
 
 		// Name
 		const nameRow = contentEl.createDiv('sl-form-row');
-		nameRow.createEl('label', { text: 'Nombre del credito' });
-		const nameInput = nameRow.createEl('input', { type: 'text', placeholder: 'Ej: Credito Banco Chile' });
+		nameRow.createEl('label', { text: t('modal_credit_lbl_name') });
+		const nameInput = nameRow.createEl('input', { type: 'text', placeholder: t('modal_credit_ph_name') });
 		nameInput.value = this.credit.name;
 		nameInput.addEventListener('input', (e) => { this.credit.name = (e.target as HTMLInputElement).value; });
 
 		// Principal
 		const principalRow = contentEl.createDiv('sl-form-row');
-		principalRow.createEl('label', { text: `Monto recibido (${sym})` });
-		principalRow.createEl('small', { text: 'Lo que el banco te deposita', cls: 'sl-form-hint' });
+		principalRow.createEl('label', { text: t('modal_credit_lbl_principal', { sym }) });
+		principalRow.createEl('small', { text: t('modal_credit_hint_principal'), cls: 'sl-form-hint' });
 		const principalInput = principalRow.createEl('input', { type: 'number', attr: { step: '1', min: '0' } });
 		principalInput.value = String(this.credit.principal || '');
 		principalInput.addEventListener('input', (e) => {
@@ -60,8 +61,8 @@ export class CreditWizardModal extends Modal {
 
 		// Total debt
 		const totalRow = contentEl.createDiv('sl-form-row');
-		totalRow.createEl('label', { text: `Deuda total (${sym})` });
-		totalRow.createEl('small', { text: 'Monto recibido + intereses + comisiones', cls: 'sl-form-hint' });
+		totalRow.createEl('label', { text: t('modal_credit_lbl_total', { sym }) });
+		totalRow.createEl('small', { text: t('modal_credit_hint_total'), cls: 'sl-form-hint' });
 		const totalInput = totalRow.createEl('input', { type: 'number', attr: { step: '1', min: '0' } });
 		totalInput.value = String(this.credit.totalDebt || '');
 		totalInput.addEventListener('input', (e) => {
@@ -71,7 +72,7 @@ export class CreditWizardModal extends Modal {
 
 		// Months
 		const monthsRow = contentEl.createDiv('sl-form-row');
-		monthsRow.createEl('label', { text: 'Cuotas (meses)' });
+		monthsRow.createEl('label', { text: t('modal_credit_lbl_months') });
 		const monthsInput = monthsRow.createEl('input', { type: 'number', attr: { min: '1', max: '360' } });
 		monthsInput.value = String(this.credit.months);
 		monthsInput.addEventListener('input', (e) => {
@@ -81,7 +82,7 @@ export class CreditWizardModal extends Modal {
 
 		// Day of month
 		const dayRow = contentEl.createDiv('sl-form-row');
-		dayRow.createEl('label', { text: 'Dia de pago' });
+		dayRow.createEl('label', { text: t('modal_credit_lbl_day') });
 		const dayInput = dayRow.createEl('input', { type: 'number', attr: { min: '1', max: '31' } });
 		dayInput.value = String(this.credit.dayOfMonth ?? 5);
 		dayInput.addEventListener('input', (e) => {
@@ -90,7 +91,7 @@ export class CreditWizardModal extends Modal {
 
 		// Start date
 		const dateRow = contentEl.createDiv('sl-form-row');
-		dateRow.createEl('label', { text: 'Fecha de inicio' });
+		dateRow.createEl('label', { text: t('modal_credit_lbl_start_date') });
 		const dateInput = dateRow.createEl('input', { type: 'date' });
 		dateInput.value = this.credit.startDate.replace(/\//g, '-');
 		dateInput.addEventListener('change', (e) => {
@@ -99,7 +100,7 @@ export class CreditWizardModal extends Modal {
 
 		// Source asset
 		const assetRow = contentEl.createDiv('sl-form-row');
-		assetRow.createEl('label', { text: 'Cuenta de pago (desde donde pagas)' });
+		assetRow.createEl('label', { text: t('modal_credit_lbl_pay_account') });
 		const assetSelect = assetRow.createEl('select');
 		const assets = this.plugin.settings.defaultAccounts.assets ?? [];
 		for (const a of assets) {
@@ -118,7 +119,7 @@ export class CreditWizardModal extends Modal {
 		// Buttons
 		const btnRow = contentEl.createDiv('sl-form-row sl-edit-btn-row');
 		if (this.isEditing) {
-			const delBtn = btnRow.createEl('button', { text: 'Eliminar', cls: 'sl-delete-btn' });
+			const delBtn = btnRow.createEl('button', { text: t('common_delete'), cls: 'sl-delete-btn' });
 			delBtn.addEventListener('click', (e) => {
 				e.preventDefault();
 				new ConfirmDeleteModal(this.app, this.credit.name, () => {
@@ -133,16 +134,16 @@ export class CreditWizardModal extends Modal {
 			});
 		}
 		const saveBtn = btnRow.createEl('button', {
-			text: this.isEditing ? 'Guardar' : 'Crear credito',
+			text: this.isEditing ? t('common_save_changes') : t('modal_credit_btn_create'),
 			cls: 'mod-cta sl-submit-btn',
 		});
 		saveBtn.addEventListener('click', (e) => {
 			e.preventDefault();
-			if (!this.credit.name.trim()) { new Notice('Escribe un nombre'); return; }
+			if (!this.credit.name.trim()) { new Notice(t('notice_credit_write_name')); return; }
 			const principal = this.credit.principal;
 			const totalDebt = this.credit.totalDebt;
-			if (!principal || principal <= 0) { new Notice('Monto recibido invalido'); return; }
-			if (!totalDebt || totalDebt <= 0) { new Notice('Deuda total invalida'); return; }
+			if (!principal || principal <= 0) { new Notice(t('notice_credit_invalid_principal')); return; }
+			if (!totalDebt || totalDebt <= 0) { new Notice(t('notice_credit_invalid_total')); return; }
 
 			this.credit.interestTotal = totalDebt - principal;
 			const { monthlyTotal } = calculateCreditMonthlyAmounts(principal, totalDebt, this.credit.months);
@@ -172,17 +173,17 @@ export class CreditWizardModal extends Modal {
 			const { monthlyTotal: monthly, monthlyInterest: interestPerMonth, monthlyPrincipal: principalPerMonth } =
 				calculateCreditMonthlyAmounts(principal, totalDebt, months);
 
-			summary.createEl('h4', { text: 'Resumen' });
+			summary.createEl('h4', { text: t('modal_credit_summary_title') });
 			const table = summary.createEl('div', { cls: 'sl-credit-summary-table' });
 			const rows: [string, string][] = [
-				['Monto recibido', `${sym}${principal.toLocaleString()}`],
-				['Intereses + comisiones', `${sym}${interest.toLocaleString()}`],
-				['Deuda total', `${sym}${totalDebt.toLocaleString()}`],
-				['Cuota mensual', `${sym}${monthly.toLocaleString()}`],
+				[t('modal_credit_row_principal'), `${sym}${principal.toLocaleString()}`],
+				[t('modal_credit_row_interest'), `${sym}${interest.toLocaleString()}`],
+				[t('modal_credit_row_total'), `${sym}${totalDebt.toLocaleString()}`],
+				[t('modal_credit_row_monthly'), `${sym}${monthly.toLocaleString()}`],
 				['', ''],
-				['Cada cuota se registra como:', ''],
-				[`  Capital (reduce deuda)`, `${sym}${principalPerMonth.toLocaleString()}`],
-				[`  Intereses (gasto)`, `${sym}${interestPerMonth.toLocaleString()}`],
+				[t('modal_credit_row_registered_as'), ''],
+				[t('modal_credit_row_capital'), `${sym}${principalPerMonth.toLocaleString()}`],
+				[t('modal_credit_row_interest_cost'), `${sym}${interestPerMonth.toLocaleString()}`],
 			];
 			for (const [label, val] of rows) {
 				if (!label && !val) { table.createEl('hr'); continue; }
@@ -247,7 +248,7 @@ export class CreditWizardModal extends Modal {
 
 		settings.credits = credits;
 		this.plugin.saveSettings();
-		new Notice(`Credito ${this.isEditing ? 'actualizado' : 'creado'}: ${c.name}`);
+		new Notice(t('notice_saved', { name: c.name }));
 	}
 
 	onClose(): void {

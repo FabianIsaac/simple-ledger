@@ -13,6 +13,7 @@ export const VIEW_TYPE_LEDGER = 'simple-ledger-view';
 export const VIEW_TYPE_LEDGER_MAIN = 'simple-ledger-main-view';
 export const VIEW_TYPE_RECURRING = 'simple-ledger-recurring-view';
 export const VIEW_TYPE_QUICK_ADD = 'simple-ledger-quick-add';
+export const VIEW_TYPE_ACCOUNTS = 'simple-ledger-accounts';
 
 export const DEFAULT_SETTINGS: PluginSettings = {
 	ledgerFile: 'Finanzas.ledger',

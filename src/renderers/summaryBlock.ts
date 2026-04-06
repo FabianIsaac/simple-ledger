@@ -3,6 +3,7 @@ import { ACCT } from '../constants';
 import { LedgerParser } from '../parser/LedgerParser';
 import { fmtAmount } from '../utils/formatting';
 import { parseBlockOptions, filterTransactions } from '../utils/filters';
+import { t } from '../i18n';
 
 type Plugin = ISimpleLedgerPlugin;
 
@@ -18,13 +19,13 @@ export function renderSummaryBlock(el: HTMLElement, plugin: Plugin, source: stri
 		const infoDiv = container.createDiv('sl-filter-info');
 		const parts: string[] = [];
 		if (opts.from && opts.to && opts.from === opts.to) {
-			parts.push(`Fecha: ${opts.from}`);
+			parts.push(t('renderer_filter_date', { date: opts.from }));
 		} else {
-			if (opts.from) parts.push(`Desde: ${opts.from}`);
-			if (opts.to) parts.push(`Hasta: ${opts.to}`);
+			if (opts.from) parts.push(t('renderer_filter_from', { from: opts.from }));
+			if (opts.to) parts.push(t('renderer_filter_to', { to: opts.to }));
 		}
-		if (opts.account) parts.push(`Cuenta: ${opts.account}`);
-		if (opts.search) parts.push(`Buscar: ${opts.search}`);
+		if (opts.account) parts.push(t('renderer_filter_account', { account: opts.account }));
+		if (opts.search) parts.push(t('renderer_filter_search', { search: opts.search }));
 		infoDiv.createSpan({ text: '🔍 ' + parts.join(' · '), cls: 'sl-filter-text' });
 	}
 
@@ -41,17 +42,17 @@ export function renderSummaryBlock(el: HTMLElement, plugin: Plugin, source: stri
 	}
 
 	if (Object.keys(groups).length === 0) {
-		container.createEl('p', { text: 'Sin datos', cls: 'sl-empty-msg' });
+		container.createEl('p', { text: t('common_empty_no_data'), cls: 'sl-empty-msg' });
 		return;
 	}
 
 	const table = container.createEl('table', { cls: 'sl-table' });
 	const thead = table.createEl('thead');
 	const hr = thead.createEl('tr');
-	hr.createEl('th', { text: 'Periodo' });
-	hr.createEl('th', { text: 'Ingresos', cls: 'sl-th-right' });
-	hr.createEl('th', { text: 'Gastos', cls: 'sl-th-right' });
-	hr.createEl('th', { text: 'Neto', cls: 'sl-th-right' });
+	hr.createEl('th', { text: t('renderer_summary_col_period') });
+	hr.createEl('th', { text: t('renderer_summary_col_income'), cls: 'sl-th-right' });
+	hr.createEl('th', { text: t('renderer_summary_col_expenses'), cls: 'sl-th-right' });
+	hr.createEl('th', { text: t('renderer_summary_col_net'), cls: 'sl-th-right' });
 
 	const tbody = table.createEl('tbody');
 	for (const [periodKey, groupTxs] of Object.entries(groups).sort()) {

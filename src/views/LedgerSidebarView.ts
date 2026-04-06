@@ -1,4 +1,5 @@
 import { ItemView, WorkspaceLeaf } from 'obsidian';
+import { t } from '../i18n';
 import { VIEW_TYPE_LEDGER, ACCT } from '../constants';
 import { PluginSettings, Transaction, BalanceTree, AddTransactionData, ISimpleLedgerPlugin } from '../types';
 import { LedgerParser } from '../parser/LedgerParser';
@@ -54,13 +55,13 @@ export class LedgerSidebarView extends ItemView {
 		header.createEl('h3', { text: 'Simple Ledger' });
 
 		const btnBar = header.createDiv('sl-header-btns');
-		const addBtn = btnBar.createEl('button', { text: '+ Nuevo', cls: 'sl-header-btn mod-cta' });
+		const addBtn = btnBar.createEl('button', { text: t('view_sidebar_btn_new'), cls: 'sl-header-btn mod-cta' });
 		addBtn.addEventListener('click', () => {
 			new AddTransactionModal(this.app, this.plugin, (data) => {
 				this.plugin.addTransaction(data);
 			}).open();
 		});
-		const refreshBtn = btnBar.createEl('button', { text: '↻', cls: 'sl-header-btn', attr: { title: 'Recargar' } });
+		const refreshBtn = btnBar.createEl('button', { text: '↻', cls: 'sl-header-btn', attr: { title: t('common_reload') } });
 		refreshBtn.addEventListener('click', () => {
 			this.plugin.loadTransactions().then(() => this.render());
 		});
@@ -70,8 +71,8 @@ export class LedgerSidebarView extends ItemView {
 
 		if (Object.keys(tree).length === 0) {
 			const empty = container.createDiv('sl-empty');
-			empty.createEl('p', { text: 'No hay transacciones aun.' });
-			empty.createEl('p', { text: 'Usa el boton "+ Nuevo" para empezar.' });
+			empty.createEl('p', { text: t('view_sidebar_empty_line1') });
+			empty.createEl('p', { text: t('view_sidebar_empty_line2') });
 			return;
 		}
 
@@ -90,9 +91,9 @@ export class LedgerSidebarView extends ItemView {
 			.filter(([k]) => k.startsWith(ACCT.assets))
 			.reduce((s, [, v]) => s + v, 0);
 
-		this._createCard(summary, 'Ingresos', totalIncome, 'sl-card-income');
-		this._createCard(summary, 'Gastos', totalExpenses, 'sl-card-expense');
-		this._createCard(summary, 'Balance', totalAssets, 'sl-card-balance');
+		this._createCard(summary, t('view_main_card_income'), totalIncome, 'sl-card-income');
+		this._createCard(summary, t('view_main_card_expenses'), totalExpenses, 'sl-card-expense');
+		this._createCard(summary, t('view_main_card_balance'), totalAssets, 'sl-card-balance');
 
 		// Monthly summary
 		const monthLabel = now.toLocaleString('es', { month: 'long', year: 'numeric' });
@@ -108,23 +109,23 @@ export class LedgerSidebarView extends ItemView {
 		const monthSection = container.createDiv('sl-month-section');
 		monthSection.createDiv({ text: monthLabel, cls: 'sl-month-label' });
 		const monthSummary = monthSection.createDiv('sl-summary sl-summary-month');
-		this._createCard(monthSummary, 'Ingresos mes', monthIncome, 'sl-card-income');
-		this._createCard(monthSummary, 'Gastos mes', monthExpenses, 'sl-card-expense');
+		this._createCard(monthSummary, t('view_sidebar_card_income_month'), monthIncome, 'sl-card-income');
+		this._createCard(monthSummary, t('view_sidebar_card_expenses_month'), monthExpenses, 'sl-card-expense');
 		const monthNet = monthIncome - monthExpenses;
-		this._createCard(monthSummary, 'Neto mes', monthNet, monthNet >= 0 ? 'sl-card-balance' : 'sl-card-expense');
+		this._createCard(monthSummary, t('view_sidebar_card_net_month'), monthNet, monthNet >= 0 ? 'sl-card-balance' : 'sl-card-expense');
 
 		// Account tree
 		const treeSection = container.createDiv('sl-tree-section');
 		const treeHeader = treeSection.createDiv('sl-section-header');
-		treeHeader.createEl('h4', { text: 'Cuentas' });
+		treeHeader.createEl('h4', { text: t('view_main_section_accounts') });
 		const treeActions = treeHeader.createDiv('sl-section-header-actions');
 		const collapseBtn = treeActions.createEl('button', {
 			text: this.treeCollapsed ? '▶' : '▼',
 			cls: 'sl-gear-btn',
-			attr: { title: this.treeCollapsed ? 'Expandir todo' : 'Colapsar todo' },
+			attr: { title: this.treeCollapsed ? t('view_sidebar_expand_all') : t('view_sidebar_collapse_all') },
 		});
 		collapseBtn.addEventListener('click', () => { this.treeCollapsed = !this.treeCollapsed; this.render(); });
-		const gearBtn = treeActions.createEl('button', { text: '⚙', cls: 'sl-gear-btn', attr: { title: 'Gestionar cuentas' } });
+		const gearBtn = treeActions.createEl('button', { text: '⚙', cls: 'sl-gear-btn', attr: { title: t('view_main_btn_manage_accounts') } });
 		gearBtn.addEventListener('click', () => {
 			new ManageAccountsModal(this.app, this.plugin).open();
 		});
@@ -137,7 +138,7 @@ export class LedgerSidebarView extends ItemView {
 
 		const recentSection = container.createDiv('sl-recent-section');
 		const recentHeader = recentSection.createDiv('sl-section-header');
-		recentHeader.createEl('h4', { text: 'Transacciones' });
+		recentHeader.createEl('h4', { text: t('view_main_section_tx') });
 		recentHeader.createSpan({ text: `(${txs.length})`, cls: 'sl-tx-count' });
 
 		const txList = recentSection.createDiv('sl-tx-list');

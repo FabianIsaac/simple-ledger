@@ -367,6 +367,55 @@
   margin-left: 4px;
 }
 
+/* Local transaction search */
+.sl-tx-header-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sl-tx-local-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: 160px;
+}
+
+.sl-tx-local-search {
+  flex: 1;
+  font-size: 0.82em;
+  padding: 3px 7px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  outline: none;
+  min-width: 0;
+}
+
+.sl-tx-local-search:focus {
+  border-color: var(--interactive-accent);
+  background: var(--background-primary);
+}
+
+.sl-tx-local-search-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 2px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.sl-tx-local-search-clear:hover {
+  opacity: 1;
+  background: var(--background-modifier-hover);
+}
+
 .sl-tree-row {
   display: flex;
   justify-content: space-between;
@@ -1052,86 +1101,175 @@
   color: var(--text-faint);
 }
 
-/* Debts block */
-.sl-debts-header {
-  margin-bottom: 10px;
-  font-size: 0.9em;
-}
-
-.sl-debts-count {
-  color: var(--text-muted);
-}
-
-.sl-debts-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.88em;
-}
-
-.sl-debts-table th {
-  text-align: left;
-  padding: 5px 8px;
-  border-bottom: 1px solid var(--background-modifier-border);
-  color: var(--text-muted);
+/* Block list shared header */
+.sl-block-list-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
   font-size: 0.82em;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
 
-.sl-debt-row td {
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--background-modifier-border-hover);
-  vertical-align: middle;
+.sl-block-list-count {
+  font-weight: 600;
+  color: var(--text-normal);
 }
 
-.sl-debt-today {
-  background: rgba(255, 152, 0, 0.1);
+/* Register block — reuses sl-tx-* classes from main panel */
+.sl-block-tx-list .sl-tx-item {
+  border-radius: 6px;
 }
 
-.sl-debt-today td:first-child {
-  border-left: 3px solid #ff9800;
+/* Debts block — card list */
+.sl-debts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.sl-debt-today-dot {
-  color: #ff9800;
-  font-size: 0.7em;
+.sl-debt-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--background-secondary);
+  border-left: 3px solid var(--background-modifier-border);
+  transition: background 0.15s;
 }
 
-.sl-debt-paid td {
-  opacity: 0.45;
+.sl-debt-card:hover {
+  background: var(--background-modifier-hover);
 }
 
-.sl-debt-date {
-  white-space: nowrap;
-  font-size: 0.85em;
-  color: var(--text-muted);
+.sl-debt-card-today {
+  border-left-color: #ff9800;
+  background: rgba(255, 152, 0, 0.07);
+}
+
+.sl-debt-card-overdue {
+  border-left-color: #f44336;
+  background: rgba(244, 67, 54, 0.07);
+}
+
+.sl-debt-card-paid {
+  border-left-color: var(--background-modifier-border);
+  opacity: 0.5;
+}
+
+.sl-debt-card-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.sl-debt-date-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  padding: 4px 5px;
+  border-radius: 6px;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  line-height: 1.1;
+}
+
+.sl-debt-badge-today {
+  background: #ff9800;
+  border-color: #ff9800;
+  color: #fff;
+}
+
+.sl-debt-badge-overdue {
+  background: rgba(244, 67, 54, 0.15);
+  border-color: #f44336;
+}
+
+.sl-debt-badge-day {
+  font-size: 1em;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
-.sl-debt-today .sl-debt-date {
-  color: #ff9800;
-  font-weight: 600;
+.sl-debt-badge-month {
+  font-size: 0.68em;
+  color: var(--text-muted);
+  text-transform: uppercase;
 }
 
-.sl-debt-name {
+.sl-debt-badge-today .sl-debt-badge-month {
+  color: rgba(255,255,255,0.8);
+}
+
+.sl-debt-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sl-debt-card-payee {
   font-weight: 500;
-}
-
-.sl-debt-freq {
-  color: var(--text-muted);
-  font-size: 0.85em;
-}
-
-.sl-debt-amount {
-  font-weight: 600;
-  color: #f44336;
+  font-size: 0.92em;
   white-space: nowrap;
-  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.sl-debt-account {
+.sl-debt-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  font-size: 0.78em;
   color: var(--text-muted);
-  font-size: 0.82em;
+}
+
+.sl-debt-meta-sep {
+  opacity: 0.4;
+}
+
+.sl-debt-card-account {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sl-debt-card-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.sl-debt-card-amount {
+  font-weight: 700;
+  font-size: 0.95em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sl-debt-card-status {
+  font-size: 0.72em;
+  white-space: nowrap;
+}
+
+.sl-debt-status-paid {
+  color: var(--color-green);
+}
+
+.sl-debt-status-today {
+  color: #ff9800;
+}
+
+.sl-debt-status-overdue {
+  color: #f44336;
 }
 
 .sl-pie-controls {
@@ -2742,6 +2880,300 @@
 .sl-multi-link:hover {
   color: var(--text-accent);
   text-decoration: underline;
+}
+
+/* ─── Accounts View ──────────────────────────────────────────────────────── */
+
+.sl-accounts-view {
+  padding: 16px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.sl-accounts-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.sl-accounts-title {
+  margin: 0;
+  font-size: 1.3em;
+}
+
+/* Summary cards */
+.sl-accounts-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+/* Category tabs */
+.sl-accounts-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.sl-accounts-tab {
+  padding: 5px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  font-size: 0.85em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sl-accounts-tab:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.sl-accounts-tab-active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: var(--interactive-accent);
+}
+
+/* Account list */
+.sl-accounts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Account card */
+.sl-accounts-card {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.sl-accounts-card:hover {
+  border-color: var(--interactive-accent);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.sl-accounts-card-selected {
+  border-color: var(--interactive-accent);
+  background: var(--background-primary);
+  box-shadow: 0 3px 12px rgba(0,0,0,0.1);
+}
+
+/* Card top row */
+.sl-accounts-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sl-accounts-card-left {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Account name row */
+.sl-accounts-name-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.sl-accounts-cat-label {
+  font-size: 0.75em;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  opacity: 0.85;
+}
+
+.sl-acct-cat-assets    { background: rgba(var(--color-green-rgb, 100,200,120), 0.15); color: var(--color-green); }
+.sl-acct-cat-liabilities { background: rgba(var(--color-red-rgb, 220,80,80), 0.15); color: var(--color-red); }
+.sl-acct-cat-income    { background: rgba(var(--color-blue-rgb, 80,140,220), 0.15); color: var(--color-blue); }
+.sl-acct-cat-expenses  { background: rgba(var(--color-orange-rgb, 220,140,50), 0.15); color: var(--color-orange); }
+
+.sl-accounts-name {
+  font-size: 1em;
+  font-weight: 600;
+  color: var(--text-normal);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Balance */
+.sl-accounts-balance {
+  font-size: 1.5em;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+  line-height: 1.1;
+}
+
+/* Footer */
+.sl-accounts-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.sl-accounts-tx-count,
+.sl-accounts-last-tx {
+  font-size: 0.75em;
+  color: var(--text-muted);
+}
+
+.sl-accounts-sep {
+  color: var(--text-faint);
+  font-size: 0.75em;
+}
+
+/* Card right: sparkline + change */
+.sl-accounts-card-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.sl-accounts-sparkline {
+  line-height: 0;
+  opacity: 0.85;
+}
+
+.sl-sparkline-svg {
+  display: block;
+}
+
+/* Sparkline bar colors */
+.sl-spark-positive { fill: var(--color-green, #4caf50); }
+.sl-spark-negative { fill: var(--color-red, #f44336); }
+.sl-spark-expense  { fill: var(--color-orange, #ff9800); opacity: 0.8; }
+.sl-spark-income   { fill: var(--color-blue, #2196f3); }
+.sl-spark-neutral  { fill: var(--background-modifier-border); }
+
+/* Monthly change */
+.sl-accounts-change-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+
+.sl-accounts-change {
+  font-size: 0.82em;
+  font-weight: 600;
+}
+
+.sl-accounts-change-neutral {
+  color: var(--text-faint);
+  font-weight: 400;
+}
+
+.sl-accounts-change-label {
+  font-size: 0.7em;
+  color: var(--text-muted);
+}
+
+/* ── Expanded detail ─────────────────────────────────────────────────────── */
+
+.sl-accounts-detail {
+  margin-top: 16px;
+  border-top: 1px solid var(--background-modifier-border);
+  padding-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.sl-accounts-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sl-accounts-detail-title {
+  margin: 0;
+  font-size: 0.82em;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Monthly table */
+.sl-accounts-month-table {
+  width: 100%;
+}
+
+.sl-accounts-current-row {
+  font-weight: 600;
+  background: var(--background-modifier-hover);
+}
+
+.sl-accounts-current-row td {
+  color: var(--text-accent);
+}
+
+/* Recent tx list */
+.sl-accounts-tx-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sl-accounts-tx-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.sl-accounts-tx-row:hover {
+  background: var(--background-modifier-hover);
+}
+
+.sl-accounts-tx-date {
+  font-size: 0.78em;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-accounts-tx-payee {
+  flex: 1;
+  font-size: 0.88em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-normal);
+}
+
+.sl-accounts-tx-amount {
+  font-size: 0.88em;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
 }
 
 /* ─── Responsive ─────────────────────────────────────────────────────────── */

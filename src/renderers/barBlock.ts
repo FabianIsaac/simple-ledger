@@ -1,6 +1,7 @@
 import { ISimpleLedgerPlugin } from '../types';
 import { parseBlockOptions, filterTransactions } from '../utils/filters';
 import { buildBarContent } from '../utils/barChart';
+import { t } from '../i18n';
 
 type Plugin = ISimpleLedgerPlugin;
 
@@ -16,13 +17,13 @@ export function renderBarBlock(el: HTMLElement, plugin: Plugin, source: string):
 		const infoDiv = container.createDiv('sl-filter-info');
 		const parts: string[] = [];
 		if (opts.from && opts.to && opts.from === opts.to) {
-			parts.push(`Fecha: ${opts.from}`);
+			parts.push(t('renderer_filter_date', { date: opts.from }));
 		} else {
-			if (opts.from) parts.push(`Desde: ${opts.from}`);
-			if (opts.to) parts.push(`Hasta: ${opts.to}`);
+			if (opts.from) parts.push(t('renderer_filter_from', { from: opts.from }));
+			if (opts.to) parts.push(t('renderer_filter_to', { to: opts.to }));
 		}
-		if (opts.account) parts.push(`Cuenta: ${opts.account}`);
-		if (opts.search) parts.push(`Buscar: ${opts.search}`);
+		if (opts.account) parts.push(t('renderer_filter_account', { account: opts.account }));
+		if (opts.search) parts.push(t('renderer_filter_search', { search: opts.search }));
 		infoDiv.createSpan({ text: '🔍 ' + parts.join(' · '), cls: 'sl-filter-text' });
 	}
 

@@ -1,5 +1,6 @@
 import { App, Modal } from 'obsidian';
 import { PluginSettings, ISimpleLedgerPlugin } from '../types';
+import { t } from '../i18n';
 
 type Plugin = ISimpleLedgerPlugin;
 
@@ -15,7 +16,7 @@ export class ManageAccountsModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.addClass('simple-ledger-modal');
-		contentEl.createEl('h2', { text: 'Gestionar cuentas' });
+		contentEl.createEl('h2', { text: t('modal_manage_title') });
 
 		const categories: { key: keyof PluginSettings['defaultAccounts']; label: string; prefix: string }[] = [
 			{ key: 'expenses',    label: 'Gastos',    prefix: 'Gastos' },
@@ -68,7 +69,7 @@ export class ManageAccountsModal extends Modal {
 			const row = container.createDiv('sl-account-row');
 			const nameSpan = row.createSpan({ text: acct, cls: 'sl-account-name' });
 			const btns = row.createDiv('sl-account-btns');
-			const editBtn = btns.createEl('button', { text: '✎', cls: 'sl-edit-acct-btn', attr: { title: 'Renombrar' } });
+			const editBtn = btns.createEl('button', { text: '✎', cls: 'sl-edit-acct-btn', attr: { title: t('common_rename') } });
 			editBtn.addEventListener('click', () => {
 				const input = document.createElement('input');
 				input.type = 'text';
@@ -95,7 +96,7 @@ export class ManageAccountsModal extends Modal {
 				});
 				input.addEventListener('blur', save);
 			});
-			const delBtn = btns.createEl('button', { text: '×', cls: 'sl-del-btn', attr: { title: 'Eliminar' } });
+			const delBtn = btns.createEl('button', { text: '×', cls: 'sl-del-btn', attr: { title: t('common_delete') } });
 			delBtn.addEventListener('click', () => {
 				this.plugin.settings.defaultAccounts[categoryKey] = this.plugin.settings.defaultAccounts[categoryKey].filter(a => a !== acct);
 				this.plugin.saveSettings();

@@ -1,4 +1,5 @@
 import { ItemView, Notice, WorkspaceLeaf, setIcon } from 'obsidian';
+import { t, tn } from '../i18n';
 import { VIEW_TYPE_LEDGER_MAIN, ACCT } from '../constants';
 import { PluginSettings, Transaction, BalanceTree, AddTransactionData, RecurringTransaction, ISimpleLedgerPlugin } from '../types';
 import { LedgerParser } from '../parser/LedgerParser';
@@ -51,6 +52,8 @@ export class LedgerMainView extends ItemView {
 	private txSortOrder: 'desc' | 'asc';
 	private filtersVisible: boolean;
 	private _refocusSearch: boolean;
+	private localSearch: string;
+	private _refocusLocalSearch: boolean;
 
 	constructor(leaf: WorkspaceLeaf, plugin: Plugin) {
 		super(leaf);
@@ -66,6 +69,8 @@ export class LedgerMainView extends ItemView {
 		this.txSortOrder = 'desc';
 		this.filtersVisible = false;
 		this._refocusSearch = false;
+		this.localSearch = '';
+		this._refocusLocalSearch = false;
 	}
 
 	getViewType(): string { return VIEW_TYPE_LEDGER_MAIN; }
@@ -106,7 +111,7 @@ export class LedgerMainView extends ItemView {
 		// Header
 		const header = container.createDiv('sl-main-header');
 		const titleRow = header.createDiv('sl-main-title-row');
-		titleRow.createEl('h2', { text: 'Simple Ledger' });
+		titleRow.createEl('h2', { text: t('view_main_title') });
 
 		// Action buttons in title row
 		const titleActions = titleRow.createDiv('sl-title-actions');
@@ -117,23 +122,23 @@ export class LedgerMainView extends ItemView {
 			return btn;
 		};
 
-		mkIconBtn('plus', 'Nueva transaccion', 'mod-cta').addEventListener('click', () => {
+		mkIconBtn('plus', t('view_main_btn_new_tx'), 'mod-cta').addEventListener('click', () => {
 			new AddTransactionModal(this.app, this.plugin, (data) => {
 				this.plugin.addTransaction(data).then(() => this.render());
 			}).open();
 		});
-		mkIconBtn('refresh-cw', 'Recargar').addEventListener('click', () => {
+		mkIconBtn('refresh-cw', t('view_main_btn_reload')).addEventListener('click', () => {
 			this.plugin.loadTransactions().then(() => this.render());
 		});
-		mkIconBtn('upload', 'Importar transacciones').addEventListener('click', () => {
+		mkIconBtn('upload', t('view_main_btn_import')).addEventListener('click', () => {
 			new ImportTransactionsModal(this.app, this.plugin, () => this.render()).open();
 		});
-		mkIconBtn('download', 'Exportar a CSV').addEventListener('click', () => this._exportCSV(txs));
+		mkIconBtn('download', t('view_main_btn_export_csv')).addEventListener('click', () => this._exportCSV(txs));
 
 		const hasActiveFilters = Object.values(this.filters).some(v => v !== '');
 		const filterToggle = mkIconBtn(
 			'sliders-horizontal',
-			'Mostrar/ocultar filtros',
+			t('view_main_btn_toggle_filters'),
 			`${this.filtersVisible ? 'sl-btn-active' : ''}${hasActiveFilters ? ' sl-btn-has-filter' : ''}`,
 		);
 		filterToggle.addEventListener('click', () => {
@@ -161,17 +166,18 @@ export class LedgerMainView extends ItemView {
 		const monthIncome = Object.entries(monthLiquid).filter(([k]) => k.startsWith(ACCT.income)).reduce((s, [, v]) => s + Math.abs(v), 0);
 		const monthExpenses = Object.entries(monthLiquid).filter(([k]) => k.startsWith(ACCT.expenses)).reduce((s, [, v]) => s + Math.abs(v), 0);
 		const monthAssets = Object.entries(monthLiquid).filter(([k]) => k.startsWith(ACCT.assets)).reduce((s, [, v]) => s + v, 0);
-		// Cambio neto en deuda este mes: negativo en ledger = más deuda, positivo = pagaste
-		const monthNetDebtChange = -Object.entries(monthLiquid)
-			.filter(([k]) => k.startsWith(ACCT.liabilities))
-			.reduce((s, [, v]) => s + v, 0);
+		// Gasto en crédito este mes: solo postings negativos a Pasivos (nuevas compras, excluye pagos)
+		const monthCreditSpending = allTxsForMonth.reduce((s, t) =>
+			s + t.postings
+				.filter(p => p.account.startsWith(ACCT.liabilities) && !isExcluded(p.account) && (p.amount ?? 0) < 0)
+				.reduce((ps, p) => ps + Math.abs(p.amount ?? 0), 0),
+			0);
 
 		const cards = container.createDiv('sl-main-cards');
-		this._card(cards, 'Ingresos', monthIncome, totalIncome, 'sl-card-income');
-		this._card(cards, 'Gastos', monthExpenses, totalExpenses, 'sl-card-expense');
-		this._card(cards, 'Balance', monthAssets, totalAssets, 'sl-card-balance');
-		// Deudas: grande = saldo actual total; pequeño = cambio neto este mes
-		this._card(cards, 'Deudas', totalLiabilities, monthNetDebtChange, 'sl-card-liability', 'saldo actual', 'este mes');
+		this._card(cards, t('view_main_card_income'), monthIncome, totalIncome, 'sl-card-income');
+		this._card(cards, t('view_main_card_expenses'), monthExpenses, totalExpenses, 'sl-card-expense');
+		this._card(cards, t('view_main_card_balance'), monthAssets, totalAssets, 'sl-card-balance');
+		this._card(cards, t('view_main_card_debts'), totalLiabilities, monthCreditSpending, 'sl-card-liability', t('view_main_card_current_balance'), t('view_main_card_spent_this_month'));
 
 		// Two-column layout
 		const content = container.createDiv('sl-main-content');
@@ -192,6 +198,15 @@ export class LedgerMainView extends ItemView {
 				searchEl.setSelectionRange(len, len);
 			}
 		}
+		if (this._refocusLocalSearch) {
+			this._refocusLocalSearch = false;
+			const localEl = container.querySelector<HTMLInputElement>('.sl-tx-local-search');
+			if (localEl) {
+				localEl.focus();
+				const len = localEl.value.length;
+				localEl.setSelectionRange(len, len);
+			}
+		}
 	}
 
 	applyFilters(partial: Partial<Filters>): void {
@@ -209,7 +224,7 @@ export class LedgerMainView extends ItemView {
 	private _renderFilters(parent: HTMLElement, allTxs: Transaction[]): void {
 		const bar = parent.createDiv('sl-filter-bar');
 		const dateGroup = bar.createDiv('sl-filter-group');
-		dateGroup.createEl('label', { text: 'Desde' });
+		dateGroup.createEl('label', { text: t('view_main_filter_from') });
 		const fromInput = dateGroup.createEl('input', { type: 'date', cls: 'sl-filter-input' });
 		fromInput.value = this.filters.from ? this.filters.from.replace(/\//g, '-') : '';
 		fromInput.addEventListener('change', (e) => {
@@ -218,7 +233,7 @@ export class LedgerMainView extends ItemView {
 		});
 
 		const dateGroup2 = bar.createDiv('sl-filter-group');
-		dateGroup2.createEl('label', { text: 'Hasta' });
+		dateGroup2.createEl('label', { text: t('view_main_filter_to') });
 		const toInput = dateGroup2.createEl('input', { type: 'date', cls: 'sl-filter-input' });
 		toInput.value = this.filters.to ? this.filters.to.replace(/\//g, '-') : '';
 		toInput.addEventListener('change', (e) => {
@@ -227,9 +242,9 @@ export class LedgerMainView extends ItemView {
 		});
 
 		const acctGroup = bar.createDiv('sl-filter-group');
-		acctGroup.createEl('label', { text: 'Cuenta' });
+		acctGroup.createEl('label', { text: t('view_main_filter_account') });
 		const acctSelect = acctGroup.createEl('select', { cls: 'sl-filter-input' });
-		acctSelect.createEl('option', { value: '', text: 'Todas' });
+		acctSelect.createEl('option', { value: '', text: t('view_main_filter_all_accounts') });
 		const allAccounts = new Set<string>();
 		for (const tx of allTxs) {
 			for (const p of tx.postings) allAccounts.add(p.account);
@@ -244,8 +259,8 @@ export class LedgerMainView extends ItemView {
 		});
 
 		const searchGroup = bar.createDiv('sl-filter-group');
-		searchGroup.createEl('label', { text: 'Buscar' });
-		const searchInput = searchGroup.createEl('input', { type: 'text', placeholder: 'Descripcion...', cls: 'sl-filter-input' });
+		searchGroup.createEl('label', { text: t('view_main_filter_search') });
+		const searchInput = searchGroup.createEl('input', { type: 'text', placeholder: t('view_main_filter_search_ph'), cls: 'sl-filter-input' });
 		searchInput.value = this.filters.search;
 		let searchTimeout: ReturnType<typeof setTimeout>;
 		searchInput.addEventListener('input', (e) => {
@@ -259,9 +274,9 @@ export class LedgerMainView extends ItemView {
 
 		const quickGroup = bar.createDiv('sl-filter-quick');
 		const quickBtns = [
-			{ label: 'Hoy', fn: () => { const t = todayStr(); this.filters.from = t; this.filters.to = t; } },
+			{ label: t('view_main_quick_today'), fn: () => { const td = todayStr(); this.filters.from = td; this.filters.to = td; } },
 			{
-				label: 'Este mes', fn: () => {
+				label: t('view_main_quick_month'), fn: () => {
 					const now = new Date();
 					const y = now.getFullYear();
 					const m = String(now.getMonth() + 1).padStart(2, '0');
@@ -271,13 +286,13 @@ export class LedgerMainView extends ItemView {
 				}
 			},
 			{
-				label: 'Este año', fn: () => {
+				label: t('view_main_quick_year'), fn: () => {
 					const y = new Date().getFullYear();
 					this.filters.from = `${y}/01/01`;
 					this.filters.to = `${y}/12/31`;
 				}
 			},
-			{ label: 'Todo', fn: () => { this.filters.from = ''; this.filters.to = ''; this.filters.account = ''; this.filters.search = ''; } },
+			{ label: t('view_main_quick_all'), fn: () => { this.filters.from = ''; this.filters.to = ''; this.filters.account = ''; this.filters.search = ''; } },
 		];
 		for (const q of quickBtns) {
 			const btn = quickGroup.createEl('button', { text: q.label, cls: 'sl-quick-btn' });
@@ -299,9 +314,9 @@ export class LedgerMainView extends ItemView {
 
 		// Header: title + chart switcher icons (top right)
 		const chartHeader = section.createDiv('sl-chart-header');
-		chartHeader.createEl('h3', { text: this.chartMode === 'cashflow' ? 'Flujo de caja' : 'Distribución' });
+		chartHeader.createEl('h3', { text: this.chartMode === 'cashflow' ? t('view_main_chart_cashflow') : t('view_main_chart_distribution') });
 		const switcher = chartHeader.createDiv('sl-chart-switcher');
-		for (const [mode, icon, title] of [['cashflow', 'bar-chart-2', 'Flujo de caja'], ['pie', 'pie-chart', 'Distribución']] as [string, string, string][]) {
+		for (const [mode, icon, title] of [['cashflow', 'bar-chart-2', t('view_main_chart_cashflow')], ['pie', 'pie-chart', t('view_main_chart_distribution')]] as [string, string, string][]) {
 			const btn = switcher.createEl('button', {
 				cls: 'sl-icon-btn' + (this.chartMode === mode ? ' sl-btn-active' : ''),
 				attr: { title },
@@ -313,7 +328,7 @@ export class LedgerMainView extends ItemView {
 		// Period note
 		if (!hasDateFilter) {
 			const subRow = section.createDiv('sl-chart-subrow');
-			subRow.createSpan({ text: 'Mes actual • Aplica un filtro de fecha para ver otro período', cls: 'sl-chart-period-note' });
+			subRow.createSpan({ text: t('view_main_chart_period_note'), cls: 'sl-chart-period-note' });
 		}
 
 		if (this.chartMode === 'cashflow') {
@@ -356,7 +371,7 @@ export class LedgerMainView extends ItemView {
 		const pieData = computePieData(balances, prefix, this.pieLevel);
 
 		if (pieData.length === 0) {
-			section.createEl('p', { text: 'Sin datos para mostrar', cls: 'sl-empty-msg' });
+			section.createEl('p', { text: t('common_empty_no_data'), cls: 'sl-empty-msg' });
 			return;
 		}
 
@@ -380,20 +395,20 @@ export class LedgerMainView extends ItemView {
 
 		const section = parent.createDiv('sl-recurring-section');
 		const recHeader = section.createDiv('sl-section-header');
-		recHeader.createEl('h3', { text: 'Recurrentes' });
+		recHeader.createEl('h3', { text: t('view_main_section_recurring') });
 
 		const headerBtns = recHeader.createDiv('sl-rec-header-btns');
-		const addBtn = headerBtns.createEl('button', { text: '+', cls: 'sl-rec-add-btn', attr: { title: 'Nueva recurrente' } });
+		const addBtn = headerBtns.createEl('button', { text: '+', cls: 'sl-rec-add-btn', attr: { title: t('view_main_btn_new_recurring') } });
 		addBtn.addEventListener('click', () => {
 			new AddRecurringModal(this.app, this.plugin, null, () => this.render()).open();
 		});
-		const creditBtn = headerBtns.createEl('button', { text: '🏦', cls: 'sl-rec-add-btn', attr: { title: 'Nuevo credito' } });
+		const creditBtn = headerBtns.createEl('button', { text: '🏦', cls: 'sl-rec-add-btn', attr: { title: t('view_main_btn_new_credit') } });
 		creditBtn.addEventListener('click', () => {
 			new CreditWizardModal(this.app, this.plugin, null, () => this.render()).open();
 		});
 
 		if (recs.length === 0) {
-			section.createEl('p', { text: 'Sin recurrentes', cls: 'sl-empty-msg sl-empty-small' });
+			section.createEl('p', { text: t('view_main_empty_recurring'), cls: 'sl-empty-msg sl-empty-small' });
 			return;
 		}
 
@@ -426,7 +441,7 @@ export class LedgerMainView extends ItemView {
 			});
 
 			if (showPayBtn && !isPaid) {
-				const payBtn = rightSide.createEl('button', { cls: 'sl-rec-pay-btn', attr: { title: 'Registrar pago' } });
+				const payBtn = rightSide.createEl('button', { cls: 'sl-rec-pay-btn', attr: { title: t('common_register_payment') } });
 				payBtn.innerHTML = '&#10003;';
 				payBtn.addEventListener('click', (e) => {
 					e.stopPropagation();
@@ -447,13 +462,13 @@ export class LedgerMainView extends ItemView {
 				infoSide.createSpan({ text: '✓', cls: 'sl-rec-status-paid' });
 			}
 
-			const noteBtn = bottomRow.createEl('button', { text: '📄', cls: 'sl-row-action-btn sl-rec-note', attr: { title: 'Abrir nota' } });
+			const noteBtn = bottomRow.createEl('button', { text: '📄', cls: 'sl-row-action-btn sl-rec-note', attr: { title: t('common_open_note') } });
 			noteBtn.addEventListener('click', (e) => {
 				e.stopPropagation();
 				this.plugin.openRecurringNote(rec);
 			});
 
-			const editBtn = bottomRow.createEl('button', { text: '✎', cls: 'sl-row-action-btn sl-rec-edit', attr: { title: 'Editar' } });
+			const editBtn = bottomRow.createEl('button', { text: '✎', cls: 'sl-row-action-btn sl-rec-edit', attr: { title: t('common_edit') } });
 			editBtn.addEventListener('click', (e) => {
 				e.stopPropagation();
 				new AddRecurringModal(this.app, this.plugin, rec, () => this.render()).open();
@@ -463,7 +478,7 @@ export class LedgerMainView extends ItemView {
 		for (const item of visiblePending) renderCard(item, true);
 
 		if (hiddenCount > 0) {
-			const moreBtn = grid.createEl('button', { text: `+${hiddenCount} mas pendientes`, cls: 'sl-rec-more-btn' });
+			const moreBtn = grid.createEl('button', { text: t('view_main_more_pending', { n: hiddenCount }), cls: 'sl-rec-more-btn' });
 			moreBtn.addEventListener('click', () => {
 				moreBtn.remove();
 				for (const item of pending.slice(maxVisible)) renderCard(item, true);
@@ -473,7 +488,7 @@ export class LedgerMainView extends ItemView {
 		if (paid.length > 0) {
 			const paidToggle = section.createDiv('sl-rec-paid-toggle');
 			const toggleBtn = paidToggle.createEl('button', {
-				text: `${paid.length} pagada${paid.length > 1 ? 's' : ''} este periodo`,
+				text: tn('view_main_paid_period_one', 'view_main_paid_period_many', paid.length),
 				cls: 'sl-rec-toggle-btn',
 			});
 			const paidGrid = section.createDiv('sl-recurring-grid sl-rec-paid-grid');
@@ -482,7 +497,7 @@ export class LedgerMainView extends ItemView {
 			toggleBtn.addEventListener('click', () => {
 				const isHidden = paidGrid.style.display === 'none';
 				paidGrid.style.display = isHidden ? '' : 'none';
-				toggleBtn.setText(isHidden ? 'Ocultar pagadas' : `${paid.length} pagada${paid.length > 1 ? 's' : ''} este periodo`);
+				toggleBtn.setText(isHidden ? t('view_main_hide_paid') : tn('view_main_paid_period_one', 'view_main_paid_period_many', paid.length));
 			});
 
 			// Save reference to grid before appending paid cards into the alternate grid
@@ -499,13 +514,66 @@ export class LedgerMainView extends ItemView {
 		const PAGE_SIZE = 20;
 		const section = parent.createDiv('sl-main-tx-section');
 		const txHeader = section.createDiv('sl-section-header');
-		txHeader.createEl('h3', { text: 'Transacciones' });
-		txHeader.createSpan({ text: `(${txs.length})`, cls: 'sl-tx-count' });
+		txHeader.createEl('h3', { text: t('view_main_section_tx') });
+
+		// Apply local filter (only affects this table, not charts)
+		let localTxs = txs;
+		if (this.localSearch.trim()) {
+			const q = this.localSearch.trim().toLowerCase();
+			// Check if query looks like a number (with optional $, dots, commas)
+			const numStr = q.replace(/[$,.]/g, '');
+			const isNumericQuery = numStr !== '' && !isNaN(Number(numStr));
+			localTxs = txs.filter(t => {
+				if (t.payee.toLowerCase().includes(q)) return true;
+				if (t.postings.some(p => p.account.toLowerCase().includes(q))) return true;
+				if (isNumericQuery) {
+					const queryNum = Number(numStr);
+					if (t.postings.some(p => p.amount !== null && Math.abs(p.amount) === queryNum)) return true;
+					// Also partial match on formatted amount string
+					const amtStr = t.postings.map(p => p.amount !== null ? String(Math.abs(p.amount)) : '').join(' ');
+					if (amtStr.includes(numStr)) return true;
+				}
+				return false;
+			});
+		}
+
+		txHeader.createSpan({ text: `(${localTxs.length}${localTxs.length !== txs.length ? `/${txs.length}` : ''})`, cls: 'sl-tx-count' });
+
+		// Right side: search + sort button grouped together
+		const txHeaderRight = txHeader.createDiv('sl-tx-header-right');
+
+		// Local search input
+		const localSearchWrap = txHeaderRight.createDiv('sl-tx-local-search-wrap');
+		const localSearchInput = localSearchWrap.createEl('input', {
+			type: 'text',
+			cls: 'sl-tx-local-search',
+			attr: { placeholder: t('view_main_search_ph'), title: t('view_main_filter_search') },
+		});
+		localSearchInput.value = this.localSearch;
+		let localSearchTimeout: ReturnType<typeof setTimeout>;
+		localSearchInput.addEventListener('input', (e) => {
+			clearTimeout(localSearchTimeout);
+			localSearchTimeout = setTimeout(() => {
+				this.localSearch = (e.target as HTMLInputElement).value;
+				this.txPage = 0;
+				this._refocusLocalSearch = true;
+				this.render();
+			}, 200);
+		});
+		if (this.localSearch) {
+			const clearBtn = localSearchWrap.createEl('button', { cls: 'sl-tx-local-search-clear', attr: { title: t('view_main_search_clear') } });
+			setIcon(clearBtn, 'x');
+			clearBtn.addEventListener('click', () => {
+				this.localSearch = '';
+				this.txPage = 0;
+				this.render();
+			});
+		}
 
 		// Sort toggle button
-		const sortBtn = txHeader.createEl('button', {
+		const sortBtn = txHeaderRight.createEl('button', {
 			cls: 'sl-icon-btn',
-			attr: { title: this.txSortOrder === 'desc' ? 'Más antiguas primero' : 'Más recientes primero' },
+			attr: { title: this.txSortOrder === 'desc' ? t('view_main_sort_oldest') : t('view_main_sort_newest') },
 		});
 		setIcon(sortBtn, this.txSortOrder === 'desc' ? 'arrow-down-narrow-wide' : 'arrow-up-narrow-wide');
 		sortBtn.addEventListener('click', () => {
@@ -514,14 +582,14 @@ export class LedgerMainView extends ItemView {
 			this.render();
 		});
 
-		if (txs.length === 0) {
-			section.createEl('p', { text: 'Sin transacciones para los filtros seleccionados', cls: 'sl-empty-msg' });
+		if (localTxs.length === 0) {
+			section.createEl('p', { text: t('view_main_empty_filtered'), cls: 'sl-empty-msg' });
 			return;
 		}
 
 		const settings = this.plugin.settings;
 		const dir = this.txSortOrder === 'desc' ? -1 : 1;
-		const sorted = [...txs].sort((a, b) => {
+		const sorted = [...localTxs].sort((a, b) => {
 			const dateCmp = a.date.localeCompare(b.date) * dir;
 			if (dateCmp !== 0) return dateCmp;
 			return (a.lineStart - b.lineStart) * dir;
@@ -545,7 +613,7 @@ export class LedgerMainView extends ItemView {
 
 			const left = item.createDiv('sl-tx-item-left');
 			const topRow = left.createDiv('sl-tx-item-top');
-			const dateSpan = topRow.createSpan({ text: tx.date, cls: 'sl-tx-item-date sl-tx-item-date-link', attr: { title: 'Abrir nota diaria' } });
+			const dateSpan = topRow.createSpan({ text: tx.date, cls: 'sl-tx-item-date sl-tx-item-date-link', attr: { title: t('view_main_open_daily_note') } });
 			dateSpan.addEventListener('click', (e) => {
 				e.stopPropagation();
 				this._openDailyNote(tx.date);
@@ -583,7 +651,7 @@ export class LedgerMainView extends ItemView {
 			right.createDiv({ text: fmtAmount(totalAmt, settings), cls: `sl-tx-item-amount ${amtColor}` });
 
 			const actions = right.createDiv('sl-tx-item-actions');
-			const editBtn = actions.createEl('button', { text: '✎', cls: 'sl-row-action-btn', attr: { title: 'Editar' } });
+			const editBtn = actions.createEl('button', { text: '✎', cls: 'sl-row-action-btn', attr: { title: t('common_edit') } });
 			editBtn.addEventListener('click', (e) => {
 				e.stopPropagation();
 				new EditTransactionModal(
@@ -592,7 +660,7 @@ export class LedgerMainView extends ItemView {
 					(txToDelete) => { this.plugin.deleteTransaction(txToDelete).then(() => this.render()); }
 				).open();
 			});
-			const delBtn = actions.createEl('button', { text: '×', cls: 'sl-row-action-btn sl-row-del', attr: { title: 'Eliminar' } });
+			const delBtn = actions.createEl('button', { text: '×', cls: 'sl-row-action-btn sl-row-del', attr: { title: t('common_delete') } });
 			delBtn.addEventListener('click', (e) => {
 				e.stopPropagation();
 				new ConfirmDeleteModal(this.app, tx.payee, () => {
@@ -641,11 +709,11 @@ export class LedgerMainView extends ItemView {
 	private _renderAccountPanel(parent: HTMLElement, balances: Record<string, number>): void {
 		const section = parent.createDiv('sl-main-accounts');
 		const accHeader = section.createDiv('sl-section-header');
-		accHeader.createEl('h3', { text: 'Cuentas' });
+		accHeader.createEl('h3', { text: t('view_main_section_accounts') });
 		const gearBtn = accHeader.createEl('button', {
 			text: this.manageOpen ? '✕' : '⚙',
 			cls: 'sl-gear-btn',
-			attr: { title: this.manageOpen ? 'Cerrar' : 'Gestionar cuentas' },
+			attr: { title: this.manageOpen ? t('view_main_btn_close') : t('view_main_btn_manage_accounts') },
 		});
 		gearBtn.addEventListener('click', () => {
 			this.manageOpen = !this.manageOpen;
@@ -742,7 +810,7 @@ export class LedgerMainView extends ItemView {
 			const exclBtn = row.createEl('button', {
 				text: isExcl ? '⊘' : '◎',
 				cls: 'sl-row-action-btn',
-				attr: { title: isExcl ? 'Incluir en balance' : 'Excluir del balance' },
+				attr: { title: isExcl ? t('view_main_btn_include_balance') : t('view_main_btn_exclude_balance') },
 			});
 			exclBtn.addEventListener('click', () => {
 				if (isExcl) {
@@ -754,7 +822,7 @@ export class LedgerMainView extends ItemView {
 				this.render();
 			});
 
-			const editBtn = row.createEl('button', { text: '✎', cls: 'sl-row-action-btn', attr: { title: 'Renombrar' } });
+			const editBtn = row.createEl('button', { text: '✎', cls: 'sl-row-action-btn', attr: { title: t('common_rename') } });
 			editBtn.addEventListener('click', () => {
 				const input = document.createElement('input');
 				input.type = 'text';
@@ -778,7 +846,7 @@ export class LedgerMainView extends ItemView {
 				input.addEventListener('blur', save);
 			});
 
-			const delBtn = row.createEl('button', { text: '×', cls: 'sl-row-action-btn sl-row-del', attr: { title: 'Eliminar' } });
+			const delBtn = row.createEl('button', { text: '×', cls: 'sl-row-action-btn sl-row-del', attr: { title: t('common_delete') } });
 			delBtn.addEventListener('click', () => {
 				settings.defaultAccounts[this.manageTab] = accounts.filter(a => a !== acct);
 				this.plugin.saveSettings();
@@ -795,7 +863,7 @@ export class LedgerMainView extends ItemView {
 		}
 		addRow.createSpan({ text: ':', cls: 'sl-manage-sep' });
 		const nameInput = addRow.createEl('input', { type: 'text', placeholder: 'NuevaCuenta', cls: 'sl-manage-name-input' });
-		const addBtn = addRow.createEl('button', { text: '+ Agregar', cls: 'sl-quick-btn' });
+		const addBtn = addRow.createEl('button', { text: t('view_main_btn_add_account'), cls: 'sl-quick-btn' });
 		addBtn.addEventListener('click', () => {
 			const sub = nameInput.value.trim();
 			if (!sub) return;

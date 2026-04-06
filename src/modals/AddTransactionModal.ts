@@ -1,5 +1,6 @@
 import { App, Modal, Notice } from 'obsidian';
 import { AddTransactionData, ISimpleLedgerPlugin } from '../types';
+import { t } from '../i18n';
 import { todayStr } from '../utils/formatting';
 import { MultiPostingModal } from './MultiPostingModal';
 
@@ -34,11 +35,11 @@ export class AddTransactionModal extends Modal {
 		contentEl.empty();
 		contentEl.addClass('simple-ledger-modal');
 
-		contentEl.createEl('h2', { text: 'Nueva transaccion' });
+		contentEl.createEl('h2', { text: t('modal_add_tx_title') });
 
 		// Date
 		const dateRow = contentEl.createDiv('sl-form-row');
-		dateRow.createEl('label', { text: 'Fecha' });
+		dateRow.createEl('label', { text: t('common_date') });
 		const dateInput = dateRow.createEl('input', { type: 'date' });
 		dateInput.value = new Date().toISOString().split('T')[0] ?? '';
 		dateInput.addEventListener('change', (e) => {
@@ -47,38 +48,38 @@ export class AddTransactionModal extends Modal {
 
 		// Payee
 		const payeeRow = contentEl.createDiv('sl-form-row');
-		payeeRow.createEl('label', { text: 'Descripcion' });
-		const payeeInput = payeeRow.createEl('input', { type: 'text', placeholder: 'Ej: Supermercado Lidl' });
+		payeeRow.createEl('label', { text: t('common_description') });
+		const payeeInput = payeeRow.createEl('input', { type: 'text', placeholder: t('modal_tx_ph_description') });
 		payeeInput.addEventListener('input', (e) => { this.payee = (e.target as HTMLInputElement).value; });
 
 		// Amount
 		const amountRow = contentEl.createDiv('sl-form-row');
-		amountRow.createEl('label', { text: `Monto (${this.plugin.settings.currencySymbol})` });
+		amountRow.createEl('label', { text: `${t('common_amount')} (${this.plugin.settings.currencySymbol})` });
 		const amountInput = amountRow.createEl('input', { type: 'number', attr: { step: '0.01', min: '0' }, placeholder: '0.00' });
 		amountInput.addEventListener('input', (e) => { this.amount = (e.target as HTMLInputElement).value; });
 
 		// Type quick buttons (first so user picks type before accounts)
 		const typeRow = contentEl.createDiv('sl-form-row sl-type-row');
-		typeRow.createEl('label', { text: 'Tipo' });
+		typeRow.createEl('label', { text: t('common_type') });
 		const btnGroup = typeRow.createDiv('sl-btn-group');
 		const types = [
-			{ label: 'Gasto', dest: 'expenses', src: 'assets' },
-			{ label: 'Ingreso', dest: 'assets', src: 'income' },
-			{ label: 'Transferencia', dest: 'assets', src: 'assets' },
-			{ label: 'Cargo TC', dest: 'expenses', src: 'liabilities' },
-			{ label: 'Pago TC', dest: 'liabilities', src: 'assets' },
+			{ label: t('type_expense'), dest: 'expenses', src: 'assets' },
+			{ label: t('type_income'), dest: 'assets', src: 'income' },
+			{ label: t('type_transfer'), dest: 'assets', src: 'assets' },
+			{ label: t('type_card_charge'), dest: 'expenses', src: 'liabilities' },
+			{ label: t('type_card_payment'), dest: 'liabilities', src: 'assets' },
 		];
 
 		// Destination account
 		const toRow = contentEl.createDiv('sl-form-row');
-		toRow.createEl('label', { text: 'Destino (a donde va)' });
+		toRow.createEl('label', { text: t('common_dest_full') });
 		const toSelect = toRow.createEl('select');
 		this._populateAccountSelect(toSelect, 'expenses');
 		toSelect.addEventListener('change', (e) => { this.toAccount = (e.target as HTMLSelectElement).value; });
 
 		// Source account
 		const fromRow = contentEl.createDiv('sl-form-row');
-		fromRow.createEl('label', { text: 'Origen (de donde sale)' });
+		fromRow.createEl('label', { text: t('common_source_full') });
 		const fromSelect = fromRow.createEl('select');
 		this._populateAccountSelect(fromSelect, 'assets');
 		fromSelect.addEventListener('change', (e) => { this.fromAccount = (e.target as HTMLSelectElement).value; });
@@ -98,22 +99,22 @@ export class AddTransactionModal extends Modal {
 
 		// Status
 		const statusRow = contentEl.createDiv('sl-form-row');
-		statusRow.createEl('label', { text: 'Estado' });
+		statusRow.createEl('label', { text: t('common_status') });
 		const statusSelect = statusRow.createEl('select');
-		statusSelect.createEl('option', { value: '*', text: 'Confirmado (*)' });
-		statusSelect.createEl('option', { value: '!', text: 'Pendiente (!)' });
-		statusSelect.createEl('option', { value: '', text: 'Sin marcar' });
+		statusSelect.createEl('option', { value: '*', text: t('status_confirmed') });
+		statusSelect.createEl('option', { value: '!', text: t('status_pending') });
+		statusSelect.createEl('option', { value: '', text: t('status_unmarked') });
 		statusSelect.addEventListener('change', (e) => { this.status = (e.target as HTMLSelectElement).value; });
 
 		// Notes
 		const notesRow = contentEl.createDiv('sl-form-row');
-		notesRow.createEl('label', { text: 'Notas (opcional)' });
-		const notesInput = notesRow.createEl('textarea', { attr: { rows: '2', placeholder: 'Comentario o detalle adicional...' } });
+		notesRow.createEl('label', { text: t('common_notes') });
+		const notesInput = notesRow.createEl('textarea', { attr: { rows: '2', placeholder: '' } });
 		notesInput.addEventListener('input', (e) => { this.notes = (e.target as HTMLTextAreaElement).value; });
 
 		// Multi-posting link
 		const multiRow = contentEl.createDiv('sl-form-row');
-		const multiLink = multiRow.createEl('a', { text: '+ Transaccion con multiples partidas', cls: 'sl-multi-link', href: '#' });
+		const multiLink = multiRow.createEl('a', { text: t('modal_tx_multi_link'), cls: 'sl-multi-link', href: '#' });
 		multiLink.addEventListener('click', (e) => {
 			e.preventDefault();
 			this.close();
@@ -122,12 +123,12 @@ export class AddTransactionModal extends Modal {
 
 		// Submit
 		const btnRow = contentEl.createDiv('sl-form-row sl-btn-row');
-		const submitBtn = btnRow.createEl('button', { text: 'Guardar transaccion', cls: 'mod-cta sl-submit-btn' });
+		const submitBtn = btnRow.createEl('button', { text: t('modal_tx_btn_save'), cls: 'mod-cta sl-submit-btn' });
 		submitBtn.addEventListener('click', (e) => {
 			e.preventDefault();
-			if (!this.payee.trim()) { new Notice('Escribe una descripcion'); return; }
-			if (!this.amount || parseFloat(this.amount) === 0) { new Notice('Escribe un monto valido'); return; }
-			if (!this.toAccount || !this.fromAccount) { new Notice('Selecciona origen y destino'); return; }
+			if (!this.payee.trim()) { new Notice(t('notice_write_description')); return; }
+			if (!this.amount || parseFloat(this.amount) === 0) { new Notice(t('notice_write_valid_amount')); return; }
+			if (!this.toAccount || !this.fromAccount) { new Notice(t('notice_select_accounts')); return; }
 			this.onSubmit({
 				date: this.date,
 				payee: this.payee.trim(),

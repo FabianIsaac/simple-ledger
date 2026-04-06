@@ -28,19 +28,15 @@ export function parseBlockOptions(source: string): BlockFilterOptions {
 			const val = (kvMatch[2] ?? '').trim();
 
 			switch (key) {
-				case 'cuenta':
 				case 'account':
 					opts.account = val;
 					break;
-				case 'desde':
 				case 'from':
 					opts.from = val.replace(/-/g, '/');
 					break;
-				case 'hasta':
 				case 'to':
 					opts.to = val.replace(/-/g, '/');
 					break;
-				case 'mes':
 				case 'month': {
 					const m = val.replace(/-/g, '/');
 					opts.from = m + '/01';
@@ -51,49 +47,41 @@ export function parseBlockOptions(source: string): BlockFilterOptions {
 					opts.to = `${m}/${String(lastDay).padStart(2, '0')}`;
 					break;
 				}
-				case 'año':
-				case 'anio':
 				case 'year':
 					opts.from = `${val}/01/01`;
 					opts.to = `${val}/12/31`;
 					break;
-				case 'buscar':
 				case 'search':
 					opts.search = val;
 					break;
-				case 'limite':
 				case 'limit':
 					opts.limit = parseInt(val) || 0;
 					break;
-				case 'orden':
 				case 'order':
 					opts.order = val.toLowerCase() === 'asc' ? 'asc' : 'desc';
 					break;
-				case 'periodo':
 				case 'period':
-					opts.period = (val.toLowerCase() === 'anual' || val.toLowerCase() === 'year') ? 'year' : 'month';
+					opts.period = (val.toLowerCase() === 'year' || val.toLowerCase() === 'annual') ? 'year' : 'month';
 					break;
-				case 'tipo':
 				case 'type': {
 					const v = val.toLowerCase();
-					if (v === 'ingresos' || v === 'income') opts.tipo = 'ingresos';
-					else if (v === 'activos' || v === 'assets') opts.tipo = 'activos';
-					else if (v === 'pasivos' || v === 'liabilities') opts.tipo = 'pasivos';
+					if (v === 'income') opts.tipo = 'ingresos';
+					else if (v === 'assets') opts.tipo = 'activos';
+					else if (v === 'liabilities') opts.tipo = 'pasivos';
 					else opts.tipo = 'gastos';
 					break;
 				}
-				case 'nivel':
 				case 'level':
 					opts.nivel = parseInt(val) === 2 ? 2 : 1;
 					break;
 			}
 		} else {
 			const keyword = trimmed.toLowerCase();
-			if (keyword === 'hoy' || keyword === 'today') {
+			if (keyword === 'today') {
 				const today = todayStr();
 				opts.from = today;
 				opts.to = today;
-			} else if (keyword === 'anual' || keyword === 'year') {
+			} else if (keyword === 'year') {
 				opts.period = 'year';
 			} else {
 				opts.account = trimmed;

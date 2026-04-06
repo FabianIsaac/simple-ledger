@@ -1,5 +1,6 @@
 import { App, Modal, Notice, TFile } from 'obsidian';
 import { Transaction, ISimpleLedgerPlugin } from '../types';
+import { t } from '../i18n';
 import { LedgerParser } from '../parser/LedgerParser';
 import { fmtAmount } from '../utils/formatting';
 
@@ -20,21 +21,21 @@ export class ImportTransactionsModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.addClass('simple-ledger-modal', 'sl-import-modal');
-		contentEl.createEl('h2', { text: 'Importar transacciones' });
+		contentEl.createEl('h2', { text: t('modal_import_title') });
 
 		// AI helper bar
 		const aiBar = contentEl.createDiv('sl-import-ai-bar');
-		aiBar.createSpan({ text: 'Paso 1: copiá tus cuentas y pegálas en la IA junto con el extracto bancario.', cls: 'sl-import-ai-hint' });
-		const copyBtn = aiBar.createEl('button', { text: '📋 Copiar cuentas para IA', cls: 'sl-quick-btn sl-import-copy-btn' });
+		aiBar.createSpan({ text: t('modal_import_step1'), cls: 'sl-import-ai-hint' });
+		const copyBtn = aiBar.createEl('button', { text: t('modal_import_btn_copy'), cls: 'sl-quick-btn sl-import-copy-btn' });
 		copyBtn.addEventListener('click', () => {
 			const prompt = this._buildAiPrompt();
 			navigator.clipboard.writeText(prompt).then(() => {
-				copyBtn.textContent = '✓ Copiado';
-				setTimeout(() => { copyBtn.textContent = '📋 Copiar cuentas para IA'; }, 2000);
+				copyBtn.textContent = t('modal_import_btn_copied');
+				setTimeout(() => { copyBtn.textContent = t('modal_import_btn_copy'); }, 2000);
 			});
 		});
 
-		contentEl.createEl('p', { text: 'Paso 2: pegá la respuesta de la IA aquí abajo.', cls: 'sl-import-hint' });
+		contentEl.createEl('p', { text: t('modal_import_step2'), cls: 'sl-import-hint' });
 
 		// Textarea
 		const textarea = contentEl.createEl('textarea', {
@@ -44,11 +45,11 @@ export class ImportTransactionsModal extends Modal {
 
 		// Buttons — declarados antes de updatePreview para que el closure los vea
 		const btnRow = contentEl.createDiv('sl-form-row sl-btn-row');
-		const cancelBtn = btnRow.createEl('button', { text: 'Cancelar' });
+		const cancelBtn = btnRow.createEl('button', { text: t('modal_import_btn_cancel') });
 		cancelBtn.addEventListener('click', () => this.close());
 
 		const submitBtn = btnRow.createEl('button', {
-			text: 'Importar',
+			text: t('modal_import_btn_import'),
 			cls: 'mod-cta sl-submit-btn',
 		});
 		submitBtn.disabled = true;
@@ -69,25 +70,26 @@ export class ImportTransactionsModal extends Modal {
 			previewList.empty();
 
 			if (!text.trim()) {
-				previewStatus.createSpan({ text: 'Pega el texto arriba para ver una vista previa.', cls: 'sl-import-neutral' });
+				previewStatus.createSpan({ text: t('modal_import_neutral'), cls: 'sl-import-neutral' });
 				submitBtn.disabled = true;
-				submitBtn.textContent = 'Importar';
+				submitBtn.textContent = t('modal_import_btn_import');
 				return;
 			}
 
 			if (this.parsed.length === 0) {
-				previewStatus.createSpan({ text: 'No se encontraron transacciones válidas. Verifica el formato.', cls: 'sl-import-error' });
+				previewStatus.createSpan({ text: t('modal_import_error_format'), cls: 'sl-import-error' });
 				submitBtn.disabled = true;
-				submitBtn.textContent = 'Importar';
+				submitBtn.textContent = t('modal_import_btn_import');
 				return;
 			}
 
+			const n = this.parsed.length;
 			previewStatus.createSpan({
-				text: `✓ Se encontraron ${this.parsed.length} transacción${this.parsed.length !== 1 ? 'es' : ''}`,
+				text: n === 1 ? t('modal_import_found_one') : t('modal_import_found_many', { n }),
 				cls: 'sl-import-ok',
 			});
 			submitBtn.disabled = false;
-			submitBtn.textContent = `Importar ${this.parsed.length} transacción${this.parsed.length !== 1 ? 'es' : ''}`;
+			submitBtn.textContent = n === 1 ? t('modal_import_btn_import_one') : t('modal_import_btn_import_many', { n });
 
 			const settings = this.plugin.settings;
 			for (const tx of this.parsed) {
@@ -126,12 +128,13 @@ export class ImportTransactionsModal extends Modal {
 			}
 		} catch (e) {
 			console.error('Simple Ledger: error al importar', e);
-			new Notice('Error al importar. Revisa la consola para más detalles.');
+			new Notice(t('notice_import_error'));
 			return;
 		}
 
 		await this.plugin.loadTransactions();
-		new Notice(`${this.parsed.length} transacción${this.parsed.length !== 1 ? 'es' : ''} importada${this.parsed.length !== 1 ? 's' : ''} correctamente.`);
+		const n = this.parsed.length;
+		new Notice(n === 1 ? t('notice_imported_one') : t('notice_imported_many', { n }));
 		this.onImported();
 		this.close();
 	}

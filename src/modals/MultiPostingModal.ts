@@ -1,5 +1,6 @@
 import { App, Modal, Notice, setIcon } from 'obsidian';
 import { MultiPostingTransactionData, ISimpleLedgerPlugin } from '../types';
+import { t } from '../i18n';
 import { todayStr } from '../utils/formatting';
 
 type Plugin = ISimpleLedgerPlugin;
@@ -40,11 +41,11 @@ export class MultiPostingModal extends Modal {
 		contentEl.empty();
 		contentEl.addClass('simple-ledger-modal', 'sl-multi-modal');
 
-		contentEl.createEl('h2', { text: 'Transaccion multi-partida' });
+		contentEl.createEl('h2', { text: t('modal_multi_title') });
 
 		// Date
 		const dateRow = contentEl.createDiv('sl-form-row');
-		dateRow.createEl('label', { text: 'Fecha' });
+		dateRow.createEl('label', { text: t('common_date') });
 		const dateInput = dateRow.createEl('input', { type: 'date' });
 		dateInput.value = new Date().toISOString().split('T')[0] ?? '';
 		dateInput.addEventListener('change', (e) => {
@@ -53,30 +54,30 @@ export class MultiPostingModal extends Modal {
 
 		// Payee
 		const payeeRow = contentEl.createDiv('sl-form-row');
-		payeeRow.createEl('label', { text: 'Descripcion' });
-		const payeeInput = payeeRow.createEl('input', { type: 'text', placeholder: 'Ej: Cena con amigos' });
+		payeeRow.createEl('label', { text: t('common_description') });
+		const payeeInput = payeeRow.createEl('input', { type: 'text', placeholder: t('modal_multi_ph_description') });
 		payeeInput.addEventListener('input', (e) => { this.payee = (e.target as HTMLInputElement).value; });
 
 		// Status
 		const statusRow = contentEl.createDiv('sl-form-row');
-		statusRow.createEl('label', { text: 'Estado' });
+		statusRow.createEl('label', { text: t('common_status') });
 		const statusSelect = statusRow.createEl('select');
-		statusSelect.createEl('option', { value: '*', text: 'Confirmado (*)' });
-		statusSelect.createEl('option', { value: '!', text: 'Pendiente (!)' });
-		statusSelect.createEl('option', { value: '', text: 'Sin marcar' });
+		statusSelect.createEl('option', { value: '*', text: t('status_confirmed') });
+		statusSelect.createEl('option', { value: '!', text: t('status_pending') });
+		statusSelect.createEl('option', { value: '', text: t('status_unmarked') });
 		statusSelect.addEventListener('change', (e) => { this.status = (e.target as HTMLSelectElement).value; });
 
 		// Notes
 		const notesRow = contentEl.createDiv('sl-form-row');
-		notesRow.createEl('label', { text: 'Notas (opcional)' });
-		const notesInput = notesRow.createEl('textarea', { attr: { rows: '2', placeholder: 'Comentario adicional...' } });
+		notesRow.createEl('label', { text: t('common_notes') });
+		const notesInput = notesRow.createEl('textarea', { attr: { rows: '2', placeholder: t('modal_multi_ph_notes') } });
 		notesInput.addEventListener('input', (e) => { this.notes = (e.target as HTMLTextAreaElement).value; });
 
 		// Postings section
 		const postingsSection = contentEl.createDiv('sl-multi-section');
 		const postingsHeader = postingsSection.createDiv('sl-multi-section-header');
-		postingsHeader.createEl('span', { text: 'Partidas' });
-		const addRowBtn = postingsHeader.createEl('button', { cls: 'sl-multi-add-btn', attr: { title: 'Agregar partida' } });
+		postingsHeader.createEl('span', { text: t('modal_multi_section_postings') });
+		const addRowBtn = postingsHeader.createEl('button', { cls: 'sl-multi-add-btn', attr: { title: t('modal_multi_btn_add_posting') } });
 		setIcon(addRowBtn, 'plus');
 		addRowBtn.addEventListener('click', (e) => {
 			e.preventDefault();
@@ -99,12 +100,12 @@ export class MultiPostingModal extends Modal {
 		this.balanceEl = postingsSection.createDiv('sl-multi-balance');
 		this._updateBalance();
 
-		const hint = postingsSection.createEl('p', { cls: 'sl-multi-hint', text: 'Deja un monto vacío para que se calcule automáticamente (auto-balance).' });
+		const hint = postingsSection.createEl('p', { cls: 'sl-multi-hint', text: t('modal_multi_hint') });
 		hint.style.cssText = 'font-size:0.8em;color:var(--text-muted);margin:4px 0 0;';
 
 		// Submit
 		const btnRow = contentEl.createDiv('sl-form-row sl-btn-row');
-		const submitBtn = btnRow.createEl('button', { text: 'Guardar transaccion', cls: 'mod-cta sl-submit-btn' });
+		const submitBtn = btnRow.createEl('button', { text: t('modal_multi_btn_save'), cls: 'mod-cta sl-submit-btn' });
 		submitBtn.addEventListener('click', (e) => {
 			e.preventDefault();
 			this._submit();
@@ -121,7 +122,7 @@ export class MultiPostingModal extends Modal {
 			const acctInput = rowEl.createEl('input', {
 				type: 'text',
 				cls: 'sl-multi-account',
-				attr: { placeholder: 'Cuenta (ej: Gastos:Comida)', list: 'sl-mp-accounts' },
+				attr: { placeholder: t('modal_multi_ph_account'), list: 'sl-mp-accounts' },
 			});
 			acctInput.value = row.account;
 			acctInput.addEventListener('input', (e) => {
@@ -132,7 +133,7 @@ export class MultiPostingModal extends Modal {
 			const amtInput = rowEl.createEl('input', {
 				type: 'number',
 				cls: 'sl-multi-amount',
-				attr: { placeholder: 'Monto (vacío = auto)', step: '0.01' },
+				attr: { placeholder: t('modal_multi_ph_amount'), step: '0.01' },
 			});
 			if (row.amount !== '') amtInput.value = row.amount;
 			amtInput.addEventListener('input', (e) => {
@@ -140,11 +141,11 @@ export class MultiPostingModal extends Modal {
 				this._updateBalance();
 			});
 
-			const delBtn = rowEl.createEl('button', { cls: 'sl-multi-del-btn', attr: { title: 'Eliminar partida' } });
+			const delBtn = rowEl.createEl('button', { cls: 'sl-multi-del-btn', attr: { title: t('modal_multi_btn_delete_posting') } });
 			setIcon(delBtn, 'x');
 			delBtn.addEventListener('click', (e) => {
 				e.preventDefault();
-				if (this.rows.length <= 2) { new Notice('Se necesitan al menos 2 partidas'); return; }
+				if (this.rows.length <= 2) { new Notice(t('notice_multi_min_postings')); return; }
 				this.rows.splice(idx, 1);
 				this._renderRows();
 				this._updateBalance();
@@ -159,32 +160,36 @@ export class MultiPostingModal extends Modal {
 
 		if (nullCount === 1) {
 			const autoVal = -sum;
-			this.balanceEl.textContent = `Balance: ${autoVal >= 0 ? '+' : ''}${autoVal.toFixed(2)} (auto)`;
+			const autoStr = `${autoVal >= 0 ? '+' : ''}${autoVal.toFixed(2)}`;
+			this.balanceEl.textContent = t('modal_multi_balance_auto', { val: autoStr });
 			this.balanceEl.className = 'sl-multi-balance sl-multi-balance-ok';
 		} else if (nullCount === 0) {
 			const balanced = Math.abs(sum) < 0.005;
-			this.balanceEl.textContent = `Balance: ${sum.toFixed(2)} ${balanced ? '✓' : '✗ (debe ser 0)'}`;
+			const valStr = sum.toFixed(2);
+			this.balanceEl.textContent = balanced
+				? t('modal_multi_balance_ok', { val: valStr })
+				: t('modal_multi_balance_err', { val: valStr });
 			this.balanceEl.className = `sl-multi-balance ${balanced ? 'sl-multi-balance-ok' : 'sl-multi-balance-err'}`;
 		} else {
-			this.balanceEl.textContent = `Balance: ${nullCount} montos vacíos (máximo 1)`;
+			this.balanceEl.textContent = t('modal_multi_balance_many_empty', { n: nullCount });
 			this.balanceEl.className = 'sl-multi-balance sl-multi-balance-err';
 		}
 	}
 
 	private _submit(): void {
-		if (!this.payee.trim()) { new Notice('Escribe una descripcion'); return; }
+		if (!this.payee.trim()) { new Notice(t('notice_write_description')); return; }
 
 		const filled = this.rows.filter(r => r.account.trim() !== '');
-		if (filled.length < 2) { new Notice('Se necesitan al menos 2 partidas con cuenta'); return; }
+		if (filled.length < 2) { new Notice(t('notice_multi_min_with_account')); return; }
 
 		const amounts = filled.map(r => r.amount === '' ? null : parseFloat(r.amount));
 		const nullCount = amounts.filter(a => a === null).length;
 
-		if (nullCount > 1) { new Notice('Solo una partida puede tener monto vacío (auto-balance)'); return; }
+		if (nullCount > 1) { new Notice(t('notice_multi_one_auto')); return; }
 
 		const sum = amounts.filter(a => a !== null).reduce((s, a) => s + (a as number), 0);
 		if (nullCount === 0 && Math.abs(sum) >= 0.005) {
-			new Notice(`Las partidas no balancean (suma = ${sum.toFixed(2)}, debe ser 0)`);
+			new Notice(t('notice_multi_unbalanced', { sum: sum.toFixed(2) }));
 			return;
 		}
 

@@ -1,4 +1,5 @@
 import { ItemView, Notice, WorkspaceLeaf } from 'obsidian';
+import { t } from '../i18n';
 import { VIEW_TYPE_QUICK_ADD, ACCT } from '../constants';
 import { PluginSettings, Transaction, AddTransactionData, ISimpleLedgerPlugin } from '../types';
 import { fmtAmount, todayStr } from '../utils/formatting';
@@ -36,7 +37,7 @@ export class QuickAddView extends ItemView {
 	}
 
 	getViewType(): string { return VIEW_TYPE_QUICK_ADD; }
-	getDisplayText(): string { return 'Agregar movimiento'; }
+	getDisplayText(): string { return t('view_qa_title'); }
 	getIcon(): string { return 'plus-circle'; }
 
 	async onOpen(): Promise<void> {
@@ -52,16 +53,16 @@ export class QuickAddView extends ItemView {
 		const settings = this.plugin.settings;
 
 		const header = container.createDiv('sl-qa-header');
-		header.createEl('h3', { text: 'Agregar movimiento' });
+		header.createEl('h3', { text: t('view_qa_title') });
 
 		// Type selector
 		const typeRow = container.createDiv('sl-qa-type-row');
 		const types = [
-			{ key: 'expense', label: 'Gasto', dest: 'expenses', src: 'assets', icon: '↗' },
-			{ key: 'income', label: 'Ingreso', dest: 'assets', src: 'income', icon: '↙' },
-			{ key: 'transfer', label: 'Transferencia', dest: 'assets', src: 'assets', icon: '⇄' },
-			{ key: 'card_charge', label: 'Cargo tarjeta', dest: 'expenses', src: 'liabilities', icon: '💳' },
-			{ key: 'card_payment', label: 'Pago tarjeta', dest: 'liabilities', src: 'assets', icon: '🏦' },
+			{ key: 'expense', label: t('view_qa_type_expense'), dest: 'expenses', src: 'assets', icon: '↗' },
+			{ key: 'income', label: t('view_qa_type_income'), dest: 'assets', src: 'income', icon: '↙' },
+			{ key: 'transfer', label: t('view_qa_type_transfer'), dest: 'assets', src: 'assets', icon: '⇄' },
+			{ key: 'card_charge', label: t('view_qa_type_card_charge'), dest: 'expenses', src: 'liabilities', icon: '💳' },
+			{ key: 'card_payment', label: t('view_qa_type_card_payment'), dest: 'liabilities', src: 'assets', icon: '🏦' },
 		];
 
 		for (const t of types) {
@@ -83,46 +84,46 @@ export class QuickAddView extends ItemView {
 
 		// Date
 		const dateGroup = form.createDiv('sl-qa-field');
-		dateGroup.createEl('label', { text: 'Fecha' });
+		dateGroup.createEl('label', { text: t('common_date') });
 		const dateInput = dateGroup.createEl('input', { type: 'date', cls: 'sl-qa-input' });
 		dateInput.value = this._date || (new Date().toISOString().split('T')[0] ?? '');
 		dateInput.addEventListener('change', (e) => { this._date = (e.target as HTMLInputElement).value; });
 
 		// Description
 		const payeeGroup = form.createDiv('sl-qa-field');
-		payeeGroup.createEl('label', { text: 'Descripcion' });
-		const payeeInput = payeeGroup.createEl('input', { type: 'text', placeholder: 'Ej: Supermercado', cls: 'sl-qa-input sl-qa-payee' });
+		payeeGroup.createEl('label', { text: t('common_description') });
+		const payeeInput = payeeGroup.createEl('input', { type: 'text', placeholder: t('view_qa_ph_description'), cls: 'sl-qa-input sl-qa-payee' });
 		payeeInput.value = this._payee;
 		payeeInput.addEventListener('input', (e) => { this._payee = (e.target as HTMLInputElement).value; });
 
 		// Amount
 		const amountGroup = form.createDiv('sl-qa-field');
-		amountGroup.createEl('label', { text: `Monto (${settings.currencySymbol})` });
+		amountGroup.createEl('label', { text: `${t('common_amount')} (${settings.currencySymbol})` });
 		const amountInput = amountGroup.createEl('input', { type: 'number', attr: { step: '1', min: '0' }, placeholder: '0', cls: 'sl-qa-input sl-qa-amount' });
 		amountInput.value = this._amount;
 		amountInput.addEventListener('input', (e) => { this._amount = (e.target as HTMLInputElement).value; });
 
 		// Destination
 		const toGroup = form.createDiv('sl-qa-field');
-		toGroup.createEl('label', { text: 'Destino' });
+		toGroup.createEl('label', { text: t('common_dest') });
 		const toSelect = toGroup.createEl('select', { cls: 'sl-qa-input' });
 		this._populateAccounts(toSelect, currentType.dest, this._toAccount);
 		toSelect.addEventListener('change', (e) => { this._toAccount = (e.target as HTMLSelectElement).value; });
 
 		// Source
 		const fromGroup = form.createDiv('sl-qa-field');
-		fromGroup.createEl('label', { text: 'Origen' });
+		fromGroup.createEl('label', { text: t('common_source') });
 		const fromSelect = fromGroup.createEl('select', { cls: 'sl-qa-input' });
 		this._populateAccounts(fromSelect, currentType.src, this._fromAccount);
 		fromSelect.addEventListener('change', (e) => { this._fromAccount = (e.target as HTMLSelectElement).value; });
 
 		// Save button
-		const saveBtn = form.createEl('button', { text: 'Guardar', cls: 'mod-cta sl-qa-save-btn' });
+		const saveBtn = form.createEl('button', { text: t('view_qa_btn_save'), cls: 'mod-cta sl-qa-save-btn' });
 		saveBtn.addEventListener('click', () => {
 			const payee = this._payee.trim();
 			const amount = parseFloat(this._amount);
-			if (!payee) { new Notice('Escribe una descripcion'); return; }
-			if (!amount || amount <= 0) { new Notice('Monto invalido'); return; }
+			if (!payee) { new Notice(t('notice_write_description')); return; }
+			if (!amount || amount <= 0) { new Notice(t('notice_monto_invalido')); return; }
 
 			const date = (this._date || (new Date().toISOString().split('T')[0] ?? todayStr())).replace(/-/g, '/');
 			const toAccount = this._toAccount || toSelect.value;
@@ -134,7 +135,7 @@ export class QuickAddView extends ItemView {
 				this._payee = '';
 				this._amount = '';
 				this.render();
-				new Notice(`Guardado: ${payee}`);
+				new Notice(t('notice_saved', { name: payee }));
 			});
 		});
 
@@ -150,7 +151,7 @@ export class QuickAddView extends ItemView {
 		// Recently added
 		if (this.recentlyAdded.length > 0) {
 			const recentSection = container.createDiv('sl-qa-recent');
-			recentSection.createEl('h4', { text: 'Agregados en esta sesion' });
+			recentSection.createEl('h4', { text: t('view_qa_recent_title') });
 			for (const item of this.recentlyAdded) {
 				const row = recentSection.createDiv('sl-qa-recent-row');
 				row.createSpan({ text: item.date, cls: 'sl-qa-recent-date' });
@@ -160,7 +161,7 @@ export class QuickAddView extends ItemView {
 					text: fmtAmount(item.amount, settings),
 					cls: `sl-qa-recent-amount ${isExpense ? 'sl-negative' : 'sl-positive'}`,
 				});
-				const dupBtn = row.createEl('button', { text: '↻', cls: 'sl-qa-dup-btn', attr: { title: 'Repetir' } });
+				const dupBtn = row.createEl('button', { text: '↻', cls: 'sl-qa-dup-btn', attr: { title: t('view_qa_btn_repeat') } });
 				dupBtn.addEventListener('click', () => {
 					this._payee = item.payee;
 					this._amount = String(item.amount);

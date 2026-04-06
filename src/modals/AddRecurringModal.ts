@@ -1,5 +1,6 @@
 import { App, Modal, Notice } from 'obsidian';
 import { ACCT } from '../constants';
+import { t } from '../i18n';
 import { RecurringTransaction, ISimpleLedgerPlugin } from '../types';
 import { generateId, FREQUENCY_LABELS } from '../utils/recurring';
 
@@ -34,18 +35,18 @@ export class AddRecurringModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.addClass('simple-ledger-modal');
-		contentEl.createEl('h2', { text: this.isEditing ? 'Editar recurrente' : 'Nueva recurrente' });
+		contentEl.createEl('h2', { text: this.isEditing ? t('modal_rec_edit_title') : t('modal_rec_new_title') });
 
 		// Payee
 		const payeeRow = contentEl.createDiv('sl-form-row');
-		payeeRow.createEl('label', { text: 'Descripcion' });
-		const payeeInput = payeeRow.createEl('input', { type: 'text', placeholder: 'Ej: Netflix, Arriendo, Sueldo' });
+		payeeRow.createEl('label', { text: t('common_description') });
+		const payeeInput = payeeRow.createEl('input', { type: 'text', placeholder: t('modal_rec_ph_description') });
 		payeeInput.value = this.rec.payee;
 		payeeInput.addEventListener('input', (e) => { this.rec.payee = (e.target as HTMLInputElement).value; });
 
 		// Amount
 		const amountRow = contentEl.createDiv('sl-form-row');
-		amountRow.createEl('label', { text: `Monto (${this.plugin.settings.currencySymbol})` });
+		amountRow.createEl('label', { text: `${t('common_amount')} (${this.plugin.settings.currencySymbol})` });
 		const amountInput = amountRow.createEl('input', { type: 'number', attr: { step: '0.01', min: '0' }, placeholder: '0' });
 		amountInput.value = String(this.rec.amount);
 		amountInput.addEventListener('input', (e) => {
@@ -54,16 +55,16 @@ export class AddRecurringModal extends Modal {
 
 		// Frequency
 		const freqRow = contentEl.createDiv('sl-form-row');
-		freqRow.createEl('label', { text: 'Frecuencia' });
+		freqRow.createEl('label', { text: t('common_frequency') });
 		const freqSelect = freqRow.createEl('select');
-		freqSelect.createEl('option', { value: 'monthly', text: 'Mensual' });
-		freqSelect.createEl('option', { value: 'weekly', text: 'Semanal' });
-		freqSelect.createEl('option', { value: 'yearly', text: 'Anual' });
+		freqSelect.createEl('option', { value: 'monthly', text: t('freq_monthly') });
+		freqSelect.createEl('option', { value: 'weekly', text: t('freq_weekly') });
+		freqSelect.createEl('option', { value: 'yearly', text: t('freq_yearly') });
 		freqSelect.value = this.rec.frequency;
 
 		// Day of month
 		const dayRow = contentEl.createDiv('sl-form-row sl-day-row');
-		dayRow.createEl('label', { text: 'Dia del mes' });
+		dayRow.createEl('label', { text: t('modal_rec_lbl_day_month') });
 		const dayInput = dayRow.createEl('input', { type: 'number', attr: { min: '1', max: '31' } });
 		dayInput.value = String(this.rec.dayOfMonth ?? 1);
 		dayInput.addEventListener('input', (e) => {
@@ -72,9 +73,9 @@ export class AddRecurringModal extends Modal {
 
 		// Day of week
 		const weekDayRow = contentEl.createDiv('sl-form-row sl-weekday-row');
-		weekDayRow.createEl('label', { text: 'Dia de la semana' });
+		weekDayRow.createEl('label', { text: t('modal_rec_lbl_day_week') });
 		const weekDaySelect = weekDayRow.createEl('select');
-		const days = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado', 'Domingo'];
+		const days = [t('day_monday'), t('day_tuesday'), t('day_wednesday'), t('day_thursday'), t('day_friday'), t('day_saturday'), t('day_sunday')];
 		days.forEach((d, i) => weekDaySelect.createEl('option', { value: String(i + 1), text: d }));
 		weekDaySelect.value = String(this.rec.dayOfWeek ?? 1);
 		weekDaySelect.addEventListener('change', (e) => {
@@ -93,23 +94,23 @@ export class AddRecurringModal extends Modal {
 
 		// Type quick buttons
 		const typeRow = contentEl.createDiv('sl-form-row sl-type-row');
-		typeRow.createEl('label', { text: 'Tipo' });
+		typeRow.createEl('label', { text: t('common_type') });
 		const btnGroup = typeRow.createDiv('sl-btn-group');
 		const types = [
-			{ label: 'Gasto', dest: 'expenses', src: 'assets' },
-			{ label: 'Tarjeta', dest: 'expenses', src: 'liabilities' },
-			{ label: 'Ingreso', dest: 'assets', src: 'income' },
-			{ label: 'Deuda', dest: 'liabilities', src: 'assets' },
+			{ label: t('type_expense'), dest: 'expenses', src: 'assets' },
+			{ label: t('type_card'), dest: 'expenses', src: 'liabilities' },
+			{ label: t('type_income'), dest: 'assets', src: 'income' },
+			{ label: t('type_debt'), dest: 'liabilities', src: 'assets' },
 		];
 
 		// Destination
 		const toRow = contentEl.createDiv('sl-form-row');
-		toRow.createEl('label', { text: 'Destino' });
+		toRow.createEl('label', { text: t('common_dest') });
 		const toSelect = toRow.createEl('select');
 
 		// Source
 		const fromRow = contentEl.createDiv('sl-form-row');
-		fromRow.createEl('label', { text: 'Origen' });
+		fromRow.createEl('label', { text: t('common_source') });
 		const fromSelect = fromRow.createEl('select');
 
 		const populateSelect = (select: HTMLSelectElement, category: string, currentValue: string) => {
@@ -159,25 +160,25 @@ export class AddRecurringModal extends Modal {
 		const btnRow = contentEl.createDiv('sl-form-row sl-edit-btn-row');
 
 		if (this.isEditing) {
-			const delBtn = btnRow.createEl('button', { text: 'Eliminar', cls: 'sl-delete-btn' });
+			const delBtn = btnRow.createEl('button', { text: t('modal_rec_btn_delete'), cls: 'sl-delete-btn' });
 			delBtn.addEventListener('click', (e) => {
 				e.preventDefault();
 				this.plugin.settings.recurringTransactions = this.plugin.settings.recurringTransactions.filter(r => r.id !== this.rec.id);
 				this.plugin.saveSettings();
 				this.onSave();
 				this.close();
-				new Notice('Recurrente eliminada');
+				new Notice(t('notice_recurring_deleted'));
 			});
 		}
 
 		const saveBtn = btnRow.createEl('button', {
-			text: this.isEditing ? 'Guardar cambios' : 'Crear recurrente',
+			text: this.isEditing ? t('common_save_changes') : t('modal_rec_btn_create'),
 			cls: 'mod-cta sl-submit-btn',
 		});
 		saveBtn.addEventListener('click', async (e) => {
 			e.preventDefault();
-			if (!this.rec.payee.trim()) { new Notice('Escribe una descripcion'); return; }
-			if (!this.rec.amount || this.rec.amount === 0) { new Notice('Escribe un monto valido'); return; }
+			if (!this.rec.payee.trim()) { new Notice(t('notice_write_description')); return; }
+			if (!this.rec.amount || this.rec.amount === 0) { new Notice(t('notice_write_valid_amount')); return; }
 			this.rec.payee = this.rec.payee.trim();
 
 			const recs = this.plugin.settings.recurringTransactions;
@@ -194,7 +195,7 @@ export class AddRecurringModal extends Modal {
 			}
 			this.onSave();
 			this.close();
-			new Notice(this.isEditing ? 'Recurrente actualizada' : 'Recurrente creada');
+			new Notice(this.isEditing ? t('notice_recurring_updated') : t('notice_recurring_created'));
 		});
 
 		setTimeout(() => payeeInput.focus(), 50);

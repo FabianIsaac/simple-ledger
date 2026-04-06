@@ -1,7 +1,8 @@
 import { Notice, Plugin, TFile } from 'obsidian';
+import { initLang, t, tn } from './i18n';
 import { getNextDueDate, isRecurringPaidThisPeriod } from './utils/recurring';
 import { DebtsModal } from './modals/DebtsModal';
-import { DEFAULT_SETTINGS, VIEW_TYPE_LEDGER, VIEW_TYPE_LEDGER_MAIN, VIEW_TYPE_RECURRING, VIEW_TYPE_QUICK_ADD } from './constants';
+import { DEFAULT_SETTINGS, VIEW_TYPE_LEDGER, VIEW_TYPE_LEDGER_MAIN, VIEW_TYPE_RECURRING, VIEW_TYPE_QUICK_ADD, VIEW_TYPE_ACCOUNTS } from './constants';
 import { PluginSettings, Transaction, AddTransactionData, MultiPostingTransactionData, RecurringTransaction } from './types';
 import { LedgerParser } from './parser/LedgerParser';
 import { fmtAmount, fmtAmountRaw, todayStr } from './utils/formatting';
@@ -11,6 +12,7 @@ import { LedgerSidebarView } from './views/LedgerSidebarView';
 import { LedgerMainView } from './views/LedgerMainView';
 import { RecurringSidebarView } from './views/RecurringSidebarView';
 import { QuickAddView } from './views/QuickAddView';
+import { AccountsView } from './views/AccountsView';
 import { AddTransactionModal } from './modals/AddTransactionModal';
 import { MultiPostingModal } from './modals/MultiPostingModal';
 import { ImportTransactionsModal } from './modals/ImportTransactionsModal';
@@ -33,6 +35,7 @@ export default class SimpleLedgerPlugin extends Plugin {
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
+		initLang((window as any).moment?.locale?.() ?? navigator.language ?? 'es');
 
 		this.transactions = [];
 
@@ -41,12 +44,13 @@ export default class SimpleLedgerPlugin extends Plugin {
 		this.registerView(VIEW_TYPE_LEDGER_MAIN, (leaf) => new LedgerMainView(leaf, this));
 		this.registerView(VIEW_TYPE_RECURRING, (leaf) => new RecurringSidebarView(leaf, this));
 		this.registerView(VIEW_TYPE_QUICK_ADD, (leaf) => new QuickAddView(leaf, this));
+		this.registerView(VIEW_TYPE_ACCOUNTS, (leaf) => new AccountsView(leaf, this));
 
 		// Ribbon icons
-		this.addRibbonIcon('wallet', 'Simple Ledger — Abrir panel', () => {
+		this.addRibbonIcon('wallet', t('app_ribbon_open'), () => {
 			this.activateMainView();
 		});
-		this.addRibbonIcon('plus-circle', 'Simple Ledger — Nueva transaccion', () => {
+		this.addRibbonIcon('plus-circle', t('app_ribbon_new_tx'), () => {
 			new AddTransactionModal(this.app, this, (data) => {
 				this.addTransaction(data);
 			}).open();
@@ -55,7 +59,7 @@ export default class SimpleLedgerPlugin extends Plugin {
 		// Commands
 		this.addCommand({
 			id: 'add-transaction',
-			name: 'Nueva transaccion',
+			name: t('cmd_new_tx'),
 			callback: () => {
 				new AddTransactionModal(this.app, this, (data) => {
 					this.addTransaction(data);
@@ -65,7 +69,7 @@ export default class SimpleLedgerPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'add-multi-posting-transaction',
-			name: 'Nueva transaccion multi-partida',
+			name: t('cmd_new_multi_tx'),
 			callback: () => {
 				new MultiPostingModal(this.app, this).open();
 			},
@@ -73,32 +77,32 @@ export default class SimpleLedgerPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'open-ledger-panel',
-			name: 'Abrir panel lateral',
+			name: t('cmd_open_sidebar'),
 			callback: () => { this.activateView(); },
 		});
 
 		this.addCommand({
 			id: 'open-ledger-dashboard',
-			name: 'Abrir panel central',
+			name: t('cmd_open_dashboard'),
 			callback: () => { this.activateMainView(); },
 		});
 
 		this.addCommand({
 			id: 'open-ledger-file',
-			name: 'Abrir archivo ledger',
+			name: t('cmd_open_file'),
 			callback: async () => {
 				const file = this.app.vault.getAbstractFileByPath(this.settings.ledgerFile);
 				if (file) {
 					await this.app.workspace.openLinkText(this.settings.ledgerFile, '', false);
 				} else {
-					new Notice(`Archivo ${this.settings.ledgerFile} no encontrado. Agrega una transaccion primero.`);
+					new Notice(t('notice_file_not_found', { file: this.settings.ledgerFile }));
 				}
 			},
 		});
 
 		this.addCommand({
 			id: 'manage-accounts',
-			name: 'Gestionar cuentas',
+			name: t('cmd_manage_accounts'),
 			callback: () => {
 				new ManageAccountsModal(this.app, this).open();
 			},
@@ -106,19 +110,25 @@ export default class SimpleLedgerPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'open-recurring-panel',
-			name: 'Abrir panel de recurrentes',
+			name: t('cmd_open_recurring'),
 			callback: () => { this.activateRecurringView(); },
 		});
 
 		this.addCommand({
 			id: 'open-quick-add',
-			name: 'Abrir panel de nuevos movimientos',
+			name: t('cmd_open_quickadd'),
 			callback: () => { this.activateQuickAddView(); },
 		});
 
 		this.addCommand({
+			id: 'open-accounts-panel',
+			name: t('cmd_open_accounts'),
+			callback: () => { this.activateAccountsView(); },
+		});
+
+		this.addCommand({
 			id: 'new-credit',
-			name: 'Nuevo credito',
+			name: t('cmd_new_credit'),
 			callback: () => {
 				new CreditWizardModal(this.app, this, null, () => this._refreshViews()).open();
 			},
@@ -127,7 +137,7 @@ export default class SimpleLedgerPlugin extends Plugin {
 		// Quick-filter commands
 		this.addCommand({
 			id: 'filter-this-month',
-			name: 'Filtrar: mes actual',
+			name: t('cmd_filter_month'),
 			callback: () => {
 				const now = new Date();
 				const y = now.getFullYear();
@@ -142,7 +152,7 @@ export default class SimpleLedgerPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'filter-this-year',
-			name: 'Filtrar: año actual',
+			name: t('cmd_filter_year'),
 			callback: () => {
 				const y = new Date().getFullYear();
 				this._applyMainViewFilters({ from: `${y}/01/01`, to: `${y}/12/31` });
@@ -152,7 +162,7 @@ export default class SimpleLedgerPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'filter-expenses',
-			name: 'Filtrar: solo gastos',
+			name: t('cmd_filter_expenses'),
 			callback: () => {
 				this._applyMainViewFilters({ account: 'Gastos' });
 				this.activateMainView();
@@ -161,7 +171,7 @@ export default class SimpleLedgerPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'filter-income',
-			name: 'Filtrar: solo ingresos',
+			name: t('cmd_filter_income'),
 			callback: () => {
 				this._applyMainViewFilters({ account: 'Ingresos' });
 				this.activateMainView();
@@ -170,7 +180,7 @@ export default class SimpleLedgerPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'filter-clear',
-			name: 'Limpiar filtros',
+			name: t('cmd_filter_clear'),
 			callback: () => {
 				this._applyMainViewFilters({ from: '', to: '', account: '', search: '' });
 				this.activateMainView();
@@ -179,7 +189,7 @@ export default class SimpleLedgerPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'import-transactions',
-			name: 'Importar transacciones',
+			name: t('cmd_import_tx'),
 			callback: () => {
 				new ImportTransactionsModal(this.app, this, () => this._refreshViews()).open();
 			},
@@ -192,7 +202,7 @@ export default class SimpleLedgerPlugin extends Plugin {
 			const { payee, amount, to, from, date, status } = params;
 
 			if (!payee || !amount || !to || !from) {
-				new Notice('Simple Ledger (URI): faltan parametros. Requeridos: payee, amount, to, from');
+				new Notice(t('notice_uri_missing_params'));
 				new AddTransactionModal(this.app, this, (data) => {
 					this.addTransaction(data);
 				}).open();
@@ -201,7 +211,7 @@ export default class SimpleLedgerPlugin extends Plugin {
 
 			const amt = parseFloat(amount);
 			if (isNaN(amt) || amt <= 0) {
-				new Notice('Simple Ledger (URI): monto invalido');
+				new Notice(t('notice_uri_invalid_amount'));
 				return;
 			}
 
@@ -654,6 +664,9 @@ export default class SimpleLedgerPlugin extends Plugin {
 		for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_RECURRING)) {
 			if (leaf.view instanceof RecurringSidebarView) leaf.view.render();
 		}
+		for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_ACCOUNTS)) {
+			if (leaf.view instanceof AccountsView) leaf.view.render();
+		}
 		this._updateStatusBar();
 	}
 
@@ -760,6 +773,23 @@ export default class SimpleLedgerPlugin extends Plugin {
 		if (!leaf) return;
 		await leaf.setViewState({ type: VIEW_TYPE_QUICK_ADD, active: true });
 		this.app.workspace.revealLeaf(leaf);
+	}
+
+	async activateAccountsView(): Promise<void> {
+		const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_ACCOUNTS);
+		if (existing.length > 0) {
+			const leaf = existing[0]!;
+			this.app.workspace.revealLeaf(leaf);
+			if (leaf.view instanceof AccountsView) {
+				await this.loadTransactions();
+				leaf.view.render();
+			}
+			return;
+		}
+		const leaf = this.app.workspace.getLeaf('tab');
+		await leaf.setViewState({ type: VIEW_TYPE_ACCOUNTS, active: true });
+		this.app.workspace.revealLeaf(leaf);
+		await this.loadTransactions();
 		await this.loadTransactions();
 	}
 }

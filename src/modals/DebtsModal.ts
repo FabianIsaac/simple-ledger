@@ -1,5 +1,6 @@
 import { App, Modal } from 'obsidian';
 import { ISimpleLedgerPlugin } from '../types';
+import { t } from '../i18n';
 import { getNextDueDate, isRecurringPaidThisPeriod, FREQUENCY_LABELS } from '../utils/recurring';
 import { fmtAmount, todayStr } from '../utils/formatting';
 
@@ -15,7 +16,7 @@ export class DebtsModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.addClass('sl-debts-modal');
-		contentEl.createEl('h2', { text: 'Vencimientos' });
+		contentEl.createEl('h2', { text: t('modal_debts_title') });
 		this._renderList(contentEl);
 	}
 
@@ -45,7 +46,7 @@ export class DebtsModal extends Modal {
 			.sort((a, b) => a.nextDue.localeCompare(b.nextDue));
 
 		if (items.length === 0) {
-			body.createEl('p', { text: 'Sin vencimientos en los próximos 60 días', cls: 'sl-empty-msg' });
+			body.createEl('p', { text: t('modal_debts_empty'), cls: 'sl-empty-msg' });
 			return;
 		}
 
@@ -64,7 +65,7 @@ export class DebtsModal extends Modal {
 			const dateEl = left.createDiv('sl-debts-modal-date');
 			if (isToday) {
 				dateEl.createSpan({ text: '●', cls: 'sl-debts-today-dot' });
-				dateEl.createSpan({ text: ' Hoy', cls: 'sl-debts-today-text' });
+				dateEl.createSpan({ text: ' ' + t('modal_debts_today'), cls: 'sl-debts-today-text' });
 			} else {
 				dateEl.setText(nextDue.substring(5));
 			}
@@ -78,10 +79,10 @@ export class DebtsModal extends Modal {
 			right.createDiv({ text: fmtAmount(rec.amount, settings), cls: 'sl-debts-modal-amount' });
 
 			if (isPaid) {
-				right.createEl('span', { text: '✓ Pagado', cls: 'sl-debts-modal-paid-badge' });
+				right.createEl('span', { text: t('modal_debts_paid_badge'), cls: 'sl-debts-modal-paid-badge' });
 			} else {
 				const payBtn = right.createEl('button', {
-					text: 'Registrar pago',
+					text: t('modal_debts_btn_pay'),
 					cls: 'sl-debts-modal-pay-btn mod-cta',
 				});
 				payBtn.addEventListener('click', async () => {

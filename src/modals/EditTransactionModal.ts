@@ -1,5 +1,6 @@
 import { App, Modal, Notice } from 'obsidian';
 import { Transaction, AddTransactionData, ISimpleLedgerPlugin } from '../types';
+import { t } from '../i18n';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 type Plugin = ISimpleLedgerPlugin;
@@ -45,11 +46,11 @@ export class EditTransactionModal extends Modal {
 		contentEl.empty();
 		contentEl.addClass('simple-ledger-modal');
 
-		contentEl.createEl('h2', { text: 'Editar transaccion' });
+		contentEl.createEl('h2', { text: t('modal_edit_tx_title') });
 
 		// Date
 		const dateRow = contentEl.createDiv('sl-form-row');
-		dateRow.createEl('label', { text: 'Fecha' });
+		dateRow.createEl('label', { text: t('common_date') });
 		const dateInput = dateRow.createEl('input', { type: 'date' });
 		dateInput.value = this.date.replace(/\//g, '-');
 		dateInput.addEventListener('change', (e) => {
@@ -58,52 +59,52 @@ export class EditTransactionModal extends Modal {
 
 		// Payee
 		const payeeRow = contentEl.createDiv('sl-form-row');
-		payeeRow.createEl('label', { text: 'Descripcion' });
+		payeeRow.createEl('label', { text: t('common_description') });
 		const payeeInput = payeeRow.createEl('input', { type: 'text' });
 		payeeInput.value = this.payee;
 		payeeInput.addEventListener('input', (e) => { this.payee = (e.target as HTMLInputElement).value; });
 
 		// Amount
 		const amountRow = contentEl.createDiv('sl-form-row');
-		amountRow.createEl('label', { text: `Monto (${this.plugin.settings.currencySymbol})` });
+		amountRow.createEl('label', { text: `${t('common_amount')} (${this.plugin.settings.currencySymbol})` });
 		const amountInput = amountRow.createEl('input', { type: 'number', attr: { step: '0.01', min: '0' } });
 		amountInput.value = this.amount;
 		amountInput.addEventListener('input', (e) => { this.amount = (e.target as HTMLInputElement).value; });
 
 		// Destination account
 		const toRow = contentEl.createDiv('sl-form-row');
-		toRow.createEl('label', { text: 'Destino (a donde va)' });
+		toRow.createEl('label', { text: t('common_dest_full') });
 		const toSelect = toRow.createEl('select');
 		this._populateAllAccounts(toSelect, this.toAccount);
 		toSelect.addEventListener('change', (e) => { this.toAccount = (e.target as HTMLSelectElement).value; });
 
 		// Source account
 		const fromRow = contentEl.createDiv('sl-form-row');
-		fromRow.createEl('label', { text: 'Origen (de donde sale)' });
+		fromRow.createEl('label', { text: t('common_source_full') });
 		const fromSelect = fromRow.createEl('select');
 		this._populateAllAccounts(fromSelect, this.fromAccount);
 		fromSelect.addEventListener('change', (e) => { this.fromAccount = (e.target as HTMLSelectElement).value; });
 
 		// Status
 		const statusRow = contentEl.createDiv('sl-form-row');
-		statusRow.createEl('label', { text: 'Estado' });
+		statusRow.createEl('label', { text: t('common_status') });
 		const statusSelect = statusRow.createEl('select');
-		statusSelect.createEl('option', { value: '*', text: 'Confirmado (*)' });
-		statusSelect.createEl('option', { value: '!', text: 'Pendiente (!)' });
-		statusSelect.createEl('option', { value: '', text: 'Sin marcar' });
+		statusSelect.createEl('option', { value: '*', text: t('status_confirmed') });
+		statusSelect.createEl('option', { value: '!', text: t('status_pending') });
+		statusSelect.createEl('option', { value: '', text: t('status_unmarked') });
 		statusSelect.value = this.status;
 		statusSelect.addEventListener('change', (e) => { this.status = (e.target as HTMLSelectElement).value; });
 
 		// Notes
 		const notesRow = contentEl.createDiv('sl-form-row');
-		notesRow.createEl('label', { text: 'Notas (opcional)' });
-		const notesInput = notesRow.createEl('textarea', { attr: { rows: '2', placeholder: 'Comentario o detalle adicional...' } });
+		notesRow.createEl('label', { text: t('common_notes') });
+		const notesInput = notesRow.createEl('textarea', { attr: { rows: '2', placeholder: '' } });
 		notesInput.value = this.notes;
 		notesInput.addEventListener('input', (e) => { this.notes = (e.target as HTMLTextAreaElement).value; });
 
 		// Buttons
 		const btnRow = contentEl.createDiv('sl-form-row sl-edit-btn-row');
-		const deleteBtn = btnRow.createEl('button', { text: 'Eliminar', cls: 'sl-delete-btn' });
+		const deleteBtn = btnRow.createEl('button', { text: t('modal_tx_btn_delete'), cls: 'sl-delete-btn' });
 		deleteBtn.addEventListener('click', (e) => {
 			e.preventDefault();
 			new ConfirmDeleteModal(this.app, this.tx.payee, () => {
@@ -112,11 +113,11 @@ export class EditTransactionModal extends Modal {
 			}).open();
 		});
 
-		const saveBtn = btnRow.createEl('button', { text: 'Guardar cambios', cls: 'mod-cta sl-submit-btn' });
+		const saveBtn = btnRow.createEl('button', { text: t('modal_tx_btn_save_changes'), cls: 'mod-cta sl-submit-btn' });
 		saveBtn.addEventListener('click', (e) => {
 			e.preventDefault();
-			if (!this.payee.trim()) { new Notice('Escribe una descripcion'); return; }
-			if (!this.amount || parseFloat(this.amount) === 0) { new Notice('Escribe un monto valido'); return; }
+			if (!this.payee.trim()) { new Notice(t('notice_write_description')); return; }
+			if (!this.amount || parseFloat(this.amount) === 0) { new Notice(t('notice_write_valid_amount')); return; }
 			this.onSave(this.tx, {
 				date: this.date,
 				payee: this.payee.trim(),
