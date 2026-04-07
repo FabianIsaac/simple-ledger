@@ -31,8 +31,8 @@ const NO_FILTER: BlockFilterOptions = {
 	limit: 0,
 	order: 'desc',
 	period: 'month',
-	tipo: 'gastos',
-	nivel: 1,
+	type: 'expenses',
+	level: 1,
 };
 
 // ─── parseBlockOptions ─────────────────────────────────────────────────────
@@ -165,28 +165,28 @@ describe('parseBlockOptions', () => {
 
 	// type
 	it('parses type: income', () => {
-		expect(parseBlockOptions('type: income').tipo).toBe('ingresos');
+		expect(parseBlockOptions('type: income').type).toBe('income');
 	});
 
 	it('parses type: assets', () => {
-		expect(parseBlockOptions('type: assets').tipo).toBe('activos');
+		expect(parseBlockOptions('type: assets').type).toBe('assets');
 	});
 
 	it('parses type: liabilities', () => {
-		expect(parseBlockOptions('type: liabilities').tipo).toBe('pasivos');
+		expect(parseBlockOptions('type: liabilities').type).toBe('liabilities');
 	});
 
-	it('defaults type to gastos for unknown values', () => {
-		expect(parseBlockOptions('type: other').tipo).toBe('gastos');
+	it('defaults type to expenses for unknown values', () => {
+		expect(parseBlockOptions('type: other').type).toBe('expenses');
 	});
 
 	// level
 	it('parses level: 2', () => {
-		expect(parseBlockOptions('level: 2').nivel).toBe(2);
+		expect(parseBlockOptions('level: 2').level).toBe(2);
 	});
 
 	it('defaults level to 1 for other values', () => {
-		expect(parseBlockOptions('level: 3').nivel).toBe(1);
+		expect(parseBlockOptions('level: 3').level).toBe(1);
 	});
 
 	// comments

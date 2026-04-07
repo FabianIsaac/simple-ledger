@@ -1,18 +1,18 @@
 import { Notice, Plugin, TFile } from 'obsidian';
 import { initLang, t, tn } from './i18n';
 import { getNextDueDate, isRecurringPaidThisPeriod } from './utils/recurring';
+import { renameAccountInRecurrings } from './utils/accounts';
 import { DebtsModal } from './modals/DebtsModal';
-import { DEFAULT_SETTINGS, VIEW_TYPE_LEDGER, VIEW_TYPE_LEDGER_MAIN, VIEW_TYPE_RECURRING, VIEW_TYPE_QUICK_ADD, VIEW_TYPE_ACCOUNTS } from './constants';
+import { ACCT, DEFAULT_SETTINGS, VIEW_TYPE_LEDGER, VIEW_TYPE_LEDGER_MAIN, VIEW_TYPE_RECURRING, VIEW_TYPE_QUICK_ADD, VIEW_TYPE_ACCOUNTS, VIEW_TYPE_BUDGET, setACCT, DEFAULT_PREFIXES_EN, DEFAULT_ACCOUNTS_EN } from './constants';
 import { PluginSettings, Transaction, AddTransactionData, MultiPostingTransactionData, RecurringTransaction } from './types';
 import { LedgerParser } from './parser/LedgerParser';
 import { fmtAmount, fmtAmountRaw, todayStr } from './utils/formatting';
-import { FREQUENCY_LABELS } from './utils/recurring';
-import { renameAccountInRecurrings } from './utils/accounts';
 import { LedgerSidebarView } from './views/LedgerSidebarView';
 import { LedgerMainView } from './views/LedgerMainView';
 import { RecurringSidebarView } from './views/RecurringSidebarView';
 import { QuickAddView } from './views/QuickAddView';
 import { AccountsView } from './views/AccountsView';
+import { BudgetView } from './views/BudgetView';
 import { AddTransactionModal } from './modals/AddTransactionModal';
 import { MultiPostingModal } from './modals/MultiPostingModal';
 import { ImportTransactionsModal } from './modals/ImportTransactionsModal';
@@ -26,6 +26,7 @@ import { renderPieBlock } from './renderers/pieBlock';
 import { renderCashflowBlock } from './renderers/cashflowBlock';
 import { renderBarBlock } from './renderers/barBlock';
 import { renderDebtsBlock } from './renderers/debtsBlock';
+import { renderBudgetBlock } from './renderers/budgetBlock';
 
 export default class SimpleLedgerPlugin extends Plugin {
 	settings!: PluginSettings;
@@ -34,8 +35,24 @@ export default class SimpleLedgerPlugin extends Plugin {
 	private _statusBarItem: HTMLElement | null = null;
 
 	async onload(): Promise<void> {
+		const savedData = await this.loadData() as Partial<PluginSettings> | null;
 		await this.loadSettings();
-		initLang((window as any).moment?.locale?.() ?? navigator.language ?? 'es');
+
+		const locale = (window as any).moment?.locale?.() ?? navigator.language ?? 'es';
+		initLang(locale);
+
+		// Fresh install: no saved data → apply language-appropriate defaults
+		if (!savedData) {
+			const code = locale.split('-')[0]?.toLowerCase() ?? 'es';
+			if (code === 'en') {
+				this.settings.accountPrefixes = { ...DEFAULT_PREFIXES_EN };
+				this.settings.defaultAccounts = { ...DEFAULT_ACCOUNTS_EN };
+				await this.saveSettings();
+			}
+		}
+
+		// Sync ACCT module with configured prefixes so all views use the right ones
+		setACCT(this.settings.accountPrefixes);
 
 		this.transactions = [];
 
@@ -45,10 +62,14 @@ export default class SimpleLedgerPlugin extends Plugin {
 		this.registerView(VIEW_TYPE_RECURRING, (leaf) => new RecurringSidebarView(leaf, this));
 		this.registerView(VIEW_TYPE_QUICK_ADD, (leaf) => new QuickAddView(leaf, this));
 		this.registerView(VIEW_TYPE_ACCOUNTS, (leaf) => new AccountsView(leaf, this));
+		this.registerView(VIEW_TYPE_BUDGET, (leaf) => new BudgetView(leaf, this));
 
 		// Ribbon icons
 		this.addRibbonIcon('wallet', t('app_ribbon_open'), () => {
 			this.activateMainView();
+		});
+		this.addRibbonIcon('landmark', t('app_ribbon_open_accounts'), () => {
+			this.activateAccountsView();
 		});
 		this.addRibbonIcon('plus-circle', t('app_ribbon_new_tx'), () => {
 			new AddTransactionModal(this.app, this, (data) => {
@@ -127,6 +148,12 @@ export default class SimpleLedgerPlugin extends Plugin {
 		});
 
 		this.addCommand({
+			id: 'open-budget-panel',
+			name: t('cmd_open_budget'),
+			callback: () => { this.activateBudgetView(); },
+		});
+
+		this.addCommand({
 			id: 'new-credit',
 			name: t('cmd_new_credit'),
 			callback: () => {
@@ -164,7 +191,7 @@ export default class SimpleLedgerPlugin extends Plugin {
 			id: 'filter-expenses',
 			name: t('cmd_filter_expenses'),
 			callback: () => {
-				this._applyMainViewFilters({ account: 'Gastos' });
+				this._applyMainViewFilters({ account: ACCT.expenses });
 				this.activateMainView();
 			},
 		});
@@ -173,7 +200,7 @@ export default class SimpleLedgerPlugin extends Plugin {
 			id: 'filter-income',
 			name: t('cmd_filter_income'),
 			callback: () => {
-				this._applyMainViewFilters({ account: 'Ingresos' });
+				this._applyMainViewFilters({ account: ACCT.income });
 				this.activateMainView();
 			},
 		});
@@ -269,6 +296,12 @@ export default class SimpleLedgerPlugin extends Plugin {
 			});
 		});
 
+		this.registerMarkdownCodeBlockProcessor('ledger-budget', (source, el) => {
+			this.loadTransactions().then(() => {
+				renderBudgetBlock(el, this, source.trim());
+			});
+		});
+
 		// Settings tab
 		this.addSettingTab(new LedgerSettingTab(this.app, this));
 
@@ -308,6 +341,8 @@ export default class SimpleLedgerPlugin extends Plugin {
 		if (!this.settings.savedFilters) this.settings.savedFilters = { from: '', to: '', account: '', search: '' };
 		if (this.settings.showStatusBarDebts === undefined) this.settings.showStatusBarDebts = true;
 		if (!this.settings.statusBarLookaheadDays) this.settings.statusBarLookaheadDays = 7;
+		if (!this.settings.accountPrefixes) this.settings.accountPrefixes = { ...DEFAULT_SETTINGS.accountPrefixes };
+		if (!this.settings.budgets) this.settings.budgets = [];
 	}
 
 	async saveSettings(): Promise<void> {
@@ -339,7 +374,7 @@ export default class SimpleLedgerPlugin extends Plugin {
 			} catch (e) {
 				console.error('Simple Ledger: error al leer transacciones', e);
 				this.transactions = [];
-				new Notice('Error al leer el archivo ledger. Revisa la consola para más detalles.');
+				new Notice(t('notice_error_read'));
 			} finally {
 				this._loadingPromise = null;
 			}
@@ -359,7 +394,7 @@ export default class SimpleLedgerPlugin extends Plugin {
 			tx.postings.some(p => p.account === toAccount && Math.abs((p.amount ?? 0) - amount) < 0.01)
 		);
 		if (duplicate) {
-			new Notice(`⚠ Posible duplicado: ya existe "${payee}" el ${date} por el mismo monto.`);
+			new Notice(t('notice_duplicate_warning', { name: payee, date }));
 		}
 
 		const settings = this.settings;
@@ -383,13 +418,13 @@ export default class SimpleLedgerPlugin extends Plugin {
 			}
 		} catch (e) {
 			console.error('Simple Ledger: error al guardar transaccion', e);
-			new Notice('Error al guardar la transaccion. Revisa la consola para más detalles.');
+			new Notice(t('notice_error_save'));
 			return;
 		}
 
 		await this.loadTransactions();
 		this._refreshViews();
-		new Notice(`Transaccion guardada: ${payee}`);
+		new Notice(t('notice_tx_saved', { name: payee }));
 	}
 
 	async addMultiPostingTransaction(data: MultiPostingTransactionData): Promise<void> {
@@ -417,20 +452,20 @@ export default class SimpleLedgerPlugin extends Plugin {
 			}
 		} catch (e) {
 			console.error('Simple Ledger: error al guardar transaccion multi-partida', e);
-			new Notice('Error al guardar la transaccion. Revisa la consola para más detalles.');
+			new Notice(t('notice_error_save'));
 			return;
 		}
 
 		await this.loadTransactions();
 		this._refreshViews();
-		new Notice(`Transaccion guardada: ${payee}`);
+		new Notice(t('notice_tx_saved', { name: payee }));
 	}
 
 	async addCreditPayment(rec: RecurringTransaction): Promise<void> {
 		const settings = this.settings;
 		const capitalPortion = rec._principalPortion ?? rec.amount;
 		const interestPortion = rec._interestPortion ?? 0;
-		const interestAccount = rec._interestAccount ?? 'Gastos:Intereses';
+		const interestAccount = rec._interestAccount ?? `${ACCT.expenses}:Intereses`;
 		const date = todayStr();
 
 		const postings = [
@@ -454,7 +489,7 @@ export default class SimpleLedgerPlugin extends Plugin {
 		await this.loadTransactions();
 		await this.appendPaymentToNote(rec, date);
 		this._refreshViews();
-		new Notice(`Cuota registrada: ${rec.payee}`);
+		new Notice(t('notice_credit_payment', { name: rec.payee }));
 	}
 
 	async updateTransaction(oldTx: Transaction, newData: AddTransactionData): Promise<void> {
@@ -482,13 +517,13 @@ export default class SimpleLedgerPlugin extends Plugin {
 			await this.app.vault.modify(file, newContent);
 		} catch (e) {
 			console.error('Simple Ledger: error al actualizar transaccion', e);
-			new Notice('Error al actualizar la transaccion. Revisa la consola para más detalles.');
+			new Notice(t('notice_error_update'));
 			return;
 		}
 
 		await this.loadTransactions();
 		this._refreshViews();
-		new Notice(`Transaccion actualizada: ${payee}`);
+		new Notice(t('notice_tx_updated', { name: payee }));
 	}
 
 	async deleteTransaction(tx: Transaction): Promise<void> {
@@ -511,13 +546,13 @@ export default class SimpleLedgerPlugin extends Plugin {
 			await this.app.vault.modify(file, newContent);
 		} catch (e) {
 			console.error('Simple Ledger: error al eliminar transaccion', e);
-			new Notice('Error al eliminar la transaccion. Revisa la consola para más detalles.');
+			new Notice(t('notice_error_delete'));
 			return;
 		}
 
 		await this.loadTransactions();
 		this._refreshViews();
-		new Notice(`Transaccion eliminada: ${tx.payee}`);
+		new Notice(t('notice_tx_deleted', { name: tx.payee }));
 	}
 
 	async renameAccount(oldName: string, newName: string): Promise<void> {
@@ -534,7 +569,7 @@ export default class SimpleLedgerPlugin extends Plugin {
 			await this.app.vault.modify(file, content);
 		} catch (e) {
 			console.error('Simple Ledger: error al renombrar cuenta', e);
-			new Notice('Error al renombrar la cuenta. Revisa la consola para más detalles.');
+			new Notice(t('notice_error_rename'));
 			return;
 		}
 
@@ -561,7 +596,7 @@ export default class SimpleLedgerPlugin extends Plugin {
 
 		await this.loadTransactions();
 		this._refreshViews();
-		new Notice(`Cuenta renombrada: ${oldName} → ${newName}`);
+		new Notice(t('notice_account_renamed', { old: oldName, new: newName }));
 	}
 
 	// ── Recurring notes ──────────────────────────────────────────────────────
@@ -584,28 +619,29 @@ export default class SimpleLedgerPlugin extends Plugin {
 			await this.app.vault.createFolder(folder);
 		}
 
-		const freq = FREQUENCY_LABELS[rec.frequency] ?? rec.frequency;
+		const freqKey = rec.frequency === 'weekly' ? 'freq_weekly' : rec.frequency === 'yearly' ? 'freq_yearly' : 'freq_monthly';
+		const freq = t(freqKey);
 		const dayLabel = rec.frequency === 'weekly'
-			? `día ${rec.dayOfWeek ?? 1} de la semana`
+			? t('note_rec_day_week', { day: String(rec.dayOfWeek ?? 1) })
 			: rec.frequency === 'yearly'
-				? `mes ${rec.monthOfYear ?? 1}`
-				: `día ${rec.dayOfMonth ?? 1} del mes`;
+				? t('note_rec_month_year', { month: String(rec.monthOfYear ?? 1) })
+				: t('note_rec_day_month', { day: String(rec.dayOfMonth ?? 1) });
 
 		let content = `# ${rec.payee}\n\n`;
-		content += `**Monto:** ${fmtAmount(rec.amount, this.settings)}\n`;
-		content += `**Frecuencia:** ${freq} (${dayLabel})\n`;
-		content += `**Desde:** ${rec.fromAccount}\n`;
-		content += `**Hacia:** ${rec.toAccount}\n`;
+		content += `**${t('note_rec_amount')}:** ${fmtAmount(rec.amount, this.settings)}\n`;
+		content += `**${t('note_rec_frequency')}:** ${freq} (${dayLabel})\n`;
+		content += `**${t('note_rec_from')}:** ${rec.fromAccount}\n`;
+		content += `**${t('note_rec_to')}:** ${rec.toAccount}\n`;
 		if (rec._isCreditPayment && rec._principalPortion && rec._interestPortion) {
-			content += `**Capital:** ${fmtAmount(rec._principalPortion, this.settings)} | `;
-			content += `**Interés:** ${fmtAmount(rec._interestPortion, this.settings)}\n`;
+			content += `**${t('note_rec_capital')}:** ${fmtAmount(rec._principalPortion, this.settings)} | `;
+			content += `**${t('note_rec_interest')}:** ${fmtAmount(rec._interestPortion, this.settings)}\n`;
 		}
-		content += `\n---\n\n## Historial de pagos\n\n`;
+		content += `\n---\n\n## ${t('note_rec_history')}\n\n`;
 		if (rec._isCreditPayment) {
-			content += `| Fecha | Monto | Capital | Interés |\n`;
+			content += `| ${t('note_rec_col_date')} | ${t('note_rec_col_amount')} | ${t('note_rec_col_capital')} | ${t('note_rec_col_interest')} |\n`;
 			content += `|-------|-------|---------|--------|\n`;
 		} else {
-			content += `| Fecha | Monto |\n`;
+			content += `| ${t('note_rec_col_date')} | ${t('note_rec_col_amount')} |\n`;
 			content += `|-------|-------|\n`;
 		}
 
@@ -667,6 +703,9 @@ export default class SimpleLedgerPlugin extends Plugin {
 		for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_ACCOUNTS)) {
 			if (leaf.view instanceof AccountsView) leaf.view.render();
 		}
+		for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_BUDGET)) {
+			if (leaf.view instanceof BudgetView) leaf.view.render();
+		}
 		this._updateStatusBar();
 	}
 
@@ -697,16 +736,16 @@ export default class SimpleLedgerPlugin extends Plugin {
 			this._statusBarItem.addClass('sl-status-urgent');
 			this._statusBarItem.createSpan({ text: '● ', cls: 'sl-status-dot' });
 			this._statusBarItem.createSpan({
-				text: `${dueToday.length} vence${dueToday.length > 1 ? 'n' : ''} hoy`,
+				text: tn('statusbar_due_today_one', 'statusbar_due_today_many', dueToday.length),
 			});
 		} else if (dueSoon.length > 0) {
 			this._statusBarItem.addClass('sl-status-soon');
 			this._statusBarItem.createSpan({ text: '○ ', cls: 'sl-status-dot' });
 			this._statusBarItem.createSpan({
-				text: `${dueSoon.length} próxima${dueSoon.length > 1 ? 's' : ''}`,
+				text: tn('statusbar_due_soon_one', 'statusbar_due_soon_many', dueSoon.length),
 			});
 		} else {
-			this._statusBarItem.createSpan({ text: '✓ Al día', cls: 'sl-status-ok' });
+			this._statusBarItem.createSpan({ text: t('statusbar_ok'), cls: 'sl-status-ok' });
 		}
 	}
 
@@ -790,6 +829,23 @@ export default class SimpleLedgerPlugin extends Plugin {
 		await leaf.setViewState({ type: VIEW_TYPE_ACCOUNTS, active: true });
 		this.app.workspace.revealLeaf(leaf);
 		await this.loadTransactions();
+		await this.loadTransactions();
+	}
+
+	async activateBudgetView(): Promise<void> {
+		const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_BUDGET);
+		if (existing.length > 0) {
+			const leaf = existing[0]!;
+			this.app.workspace.revealLeaf(leaf);
+			if (leaf.view instanceof BudgetView) {
+				await this.loadTransactions();
+				leaf.view.render();
+			}
+			return;
+		}
+		const leaf = this.app.workspace.getLeaf('tab');
+		await leaf.setViewState({ type: VIEW_TYPE_BUDGET, active: true });
+		this.app.workspace.revealLeaf(leaf);
 		await this.loadTransactions();
 	}
 }

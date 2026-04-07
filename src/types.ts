@@ -54,6 +54,13 @@ export interface DefaultAccounts {
 	liabilities: string[];
 }
 
+export interface AccountPrefixes {
+	expenses: string;
+	income: string;
+	assets: string;
+	liabilities: string;
+}
+
 export interface PluginSettings {
 	ledgerFile: string;
 	currencySymbol: string;
@@ -61,11 +68,13 @@ export interface PluginSettings {
 	decimals: number;
 	thousandSeparator: string;
 	recurringNotesFolder: string;
+	accountPrefixes: AccountPrefixes;
 	defaultAccounts: DefaultAccounts;
 	archivedAccounts: string[];
 	excludedFromBalance: string[];
 	recurringTransactions: RecurringTransaction[];
 	credits: Credit[];
+	budgets: Budget[];
 	savedFilters: {
 		from: string;
 		to: string;
@@ -84,8 +93,8 @@ export interface BlockFilterOptions {
 	limit: number;
 	order: 'asc' | 'desc';
 	period: 'month' | 'year';
-	tipo: 'gastos' | 'ingresos' | 'activos' | 'pasivos';
-	nivel: 1 | 2;
+	type: 'expenses' | 'income' | 'assets' | 'liabilities';
+	level: 1 | 2;
 }
 
 /**
@@ -130,6 +139,13 @@ export interface MultiPostingTransactionData {
 	status: string;
 	notes?: string;
 	postings: MultiPostingRow[];
+}
+
+export interface Budget {
+	id: string;
+	account: string;
+	amount: number;
+	period: 'monthly' | 'yearly';
 }
 
 export interface BalanceTree {

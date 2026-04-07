@@ -10,6 +10,8 @@ function makeSettings(overrides: Partial<PluginSettings> = {}): PluginSettings {
 		decimals: 2,
 		thousandSeparator: '',
 		recurringNotesFolder: 'Finanzas/Recurrentes',
+		accountPrefixes: { expenses: 'Gastos', income: 'Ingresos', assets: 'Activos', liabilities: 'Pasivos' },
+		budgets: [],
 		defaultAccounts: { expenses: [], income: [], assets: [], liabilities: [] },
 		archivedAccounts: [],
 		excludedFromBalance: [],

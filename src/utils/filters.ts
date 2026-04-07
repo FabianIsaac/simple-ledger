@@ -10,8 +10,8 @@ export function parseBlockOptions(source: string): BlockFilterOptions {
 		limit: 0,
 		order: 'desc',
 		period: 'month',
-		tipo: 'gastos',
-		nivel: 1,
+		type: 'expenses',
+		level: 1,
 	};
 
 	if (!source || !source.trim()) return opts;
@@ -65,14 +65,14 @@ export function parseBlockOptions(source: string): BlockFilterOptions {
 					break;
 				case 'type': {
 					const v = val.toLowerCase();
-					if (v === 'income') opts.tipo = 'ingresos';
-					else if (v === 'assets') opts.tipo = 'activos';
-					else if (v === 'liabilities') opts.tipo = 'pasivos';
-					else opts.tipo = 'gastos';
+					if (v === 'income') opts.type = 'income';
+					else if (v === 'assets') opts.type = 'assets';
+					else if (v === 'liabilities') opts.type = 'liabilities';
+					else opts.type = 'expenses';
 					break;
 				}
 				case 'level':
-					opts.nivel = parseInt(val) === 2 ? 2 : 1;
+					opts.level = parseInt(val) === 2 ? 2 : 1;
 					break;
 			}
 		} else {

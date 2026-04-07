@@ -7,14 +7,14 @@ import { t } from '../i18n';
 
 type Plugin = ISimpleLedgerPlugin;
 
-function getTipoLabel(tipo: string): string {
+function getTypeLabel(type: string): string {
 	const labels: Record<string, string> = {
-		gastos: t('view_main_pie_gastos'),
-		ingresos: t('view_main_pie_ingresos'),
-		activos: t('view_main_pie_activos'),
-		pasivos: t('view_main_pie_pasivos'),
+		expenses: t('view_main_pie_gastos'),
+		income: t('view_main_pie_ingresos'),
+		assets: t('view_main_pie_activos'),
+		liabilities: t('view_main_pie_pasivos'),
 	};
-	return labels[tipo] ?? t('view_main_pie_gastos');
+	return labels[type] ?? t('view_main_pie_gastos');
 }
 
 export function renderPieBlock(el: HTMLElement, plugin: Plugin, source: string): void {
@@ -25,17 +25,17 @@ export function renderPieBlock(el: HTMLElement, plugin: Plugin, source: string):
 	const filteredTxs = filterTransactions([...txs], opts);
 	const balances = LedgerParser.computeBalances(filteredTxs);
 
-	const prefix = opts.tipo === 'ingresos' ? ACCT.income
-		: opts.tipo === 'activos' ? ACCT.assets
-		: opts.tipo === 'pasivos' ? ACCT.liabilities
+	const prefix = opts.type === 'income' ? ACCT.income
+		: opts.type === 'assets' ? ACCT.assets
+		: opts.type === 'liabilities' ? ACCT.liabilities
 		: ACCT.expenses;
 
-	const pieData = computePieData(balances, prefix, opts.nivel);
+	const pieData = computePieData(balances, prefix, opts.level);
 
 	const container = el.createDiv('sl-codeblock sl-pie-block');
 
-	const title = container.createEl('h3', { text: getTipoLabel(opts.tipo), cls: 'sl-pie-block-title' });
-	if (opts.nivel === 2) title.createSpan({ text: t('view_main_pie_subcuentas'), cls: 'sl-pie-block-subtitle' });
+	const title = container.createEl('h3', { text: getTypeLabel(opts.type), cls: 'sl-pie-block-title' });
+	if (opts.level === 2) title.createSpan({ text: t('view_main_pie_subcuentas'), cls: 'sl-pie-block-subtitle' });
 
 	if (opts.from || opts.to || opts.account || opts.search) {
 		const infoDiv = container.createDiv('sl-filter-info');
