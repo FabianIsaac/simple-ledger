@@ -54,10 +54,10 @@ const es = {
 	notice_error_update: 'Error al actualizar. Revisa la consola.',
 	notice_error_delete: 'Error al eliminar. Revisa la consola.',
 	notice_error_rename: 'Error al renombrar la cuenta. Revisa la consola.',
-	statusbar_due_today_one: '● 1 vence hoy',
-	statusbar_due_today_many: '● {n} vencen hoy',
-	statusbar_due_soon_one: '○ 1 próxima',
-	statusbar_due_soon_many: '○ {n} próximas',
+	statusbar_due_today_one: '1 vence hoy',
+	statusbar_due_today_many: '{n} vencen hoy',
+	statusbar_due_soon_one: '1 próxima',
+	statusbar_due_soon_many: '{n} próximas',
 	statusbar_ok: '✓ Al día',
 
 	// ── Common ────────────────────────────────────────────────────────────────
@@ -75,6 +75,7 @@ const es = {
 	common_save: 'Guardar',
 	common_save_changes: 'Guardar cambios',
 	common_cancel: 'Cancelar',
+	common_close: 'Cerrar',
 	common_delete: 'Eliminar',
 	common_edit: 'Editar',
 	common_reload: 'Recargar',
@@ -166,6 +167,8 @@ const es = {
 	view_main_pie_activos: 'Distribución de Activos',
 	view_main_pie_pasivos: 'Distribución de Pasivos',
 	view_main_pie_subcuentas: ' — Sub-cuentas',
+	view_main_pie_level1: 'Nivel 1',
+	view_main_pie_level2: 'Nivel 2 (sub-cuentas)',
 	view_main_open_daily_note: 'Abrir nota diaria',
 
 	// ── Sidebar view ──────────────────────────────────────────────────────────
@@ -384,6 +387,19 @@ const es = {
 	view_accounts_col_month: 'Mes',
 	view_accounts_col_flow: 'Flujo',
 	view_accounts_col_balance: 'Balance',
+
+	// ── Card info modals ──────────────────────────────────────────────────────
+	card_info_btn_title: 'Ver cómo se calcula',
+	card_info_net_worth_title: 'Patrimonio neto',
+	card_info_net_worth_desc: 'El patrimonio neto es la diferencia entre el total de tus activos y el total de tus deudas. Refleja tu riqueza real en este momento.',
+	card_info_net_worth_formula: 'Patrimonio = {assets} (Activos) − {liabilities} (Deudas)',
+	card_info_assets_title: 'Total de Activos',
+	card_info_assets_desc: 'Suma de los saldos de todas tus cuentas de activos (cuentas bancarias, inversiones, efectivo, etc.).',
+	card_info_liabilities_title: 'Total de Deudas',
+	card_info_liabilities_desc: 'Suma de los saldos de todas tus cuentas de pasivos (tarjetas de crédito, préstamos, créditos, etc.).',
+	card_info_col_account: 'Cuenta',
+	card_info_col_balance: 'Saldo',
+	card_info_total: 'Total',
 
 	// ── Budget view ───────────────────────────────────────────────────────────
 	view_budget_title: 'Presupuestos',

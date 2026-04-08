@@ -52,9 +52,11 @@ export class DebtsModal extends Modal {
 
 		for (const { rec, nextDue, isPaid } of items) {
 			const isToday = nextDue === today;
+			const isOverdue = !isPaid && nextDue < today;
 
 			let rowCls = 'sl-debts-modal-row';
-			if (isToday) rowCls += ' sl-debts-modal-today';
+			if (isOverdue) rowCls += ' sl-debts-modal-overdue';
+			else if (isToday) rowCls += ' sl-debts-modal-today';
 			if (isPaid) rowCls += ' sl-debts-modal-paid';
 
 			const row = body.createDiv(rowCls);
@@ -63,7 +65,10 @@ export class DebtsModal extends Modal {
 			const left = row.createDiv('sl-debts-modal-left');
 
 			const dateEl = left.createDiv('sl-debts-modal-date');
-			if (isToday) {
+			if (isOverdue) {
+				dateEl.createSpan({ text: '⚠', cls: 'sl-debts-overdue-icon' });
+				dateEl.createSpan({ text: ' ' + nextDue.substring(5), cls: 'sl-debts-overdue-date' });
+			} else if (isToday) {
 				dateEl.createSpan({ text: '●', cls: 'sl-debts-today-dot' });
 				dateEl.createSpan({ text: ' ' + t('modal_debts_today'), cls: 'sl-debts-today-text' });
 			} else {

@@ -56,10 +56,10 @@ const en: Record<LangKeys, string> = {
 	notice_error_update: 'Error updating transaction. Check the console.',
 	notice_error_delete: 'Error deleting transaction. Check the console.',
 	notice_error_rename: 'Error renaming account. Check the console.',
-	statusbar_due_today_one: '● 1 due today',
-	statusbar_due_today_many: '● {n} due today',
-	statusbar_due_soon_one: '○ 1 upcoming',
-	statusbar_due_soon_many: '○ {n} upcoming',
+	statusbar_due_today_one: '1 due today',
+	statusbar_due_today_many: '{n} due today',
+	statusbar_due_soon_one: '1 upcoming',
+	statusbar_due_soon_many: '{n} upcoming',
 	statusbar_ok: '✓ All clear',
 	settings_title: 'Simple Ledger — Settings',
 	settings_ledger_file: 'Ledger file',
@@ -112,6 +112,7 @@ const en: Record<LangKeys, string> = {
 	common_save: 'Save',
 	common_save_changes: 'Save changes',
 	common_cancel: 'Cancel',
+	common_close: 'Close',
 	common_delete: 'Delete',
 	common_edit: 'Edit',
 	common_reload: 'Reload',
@@ -203,6 +204,8 @@ const en: Record<LangKeys, string> = {
 	view_main_pie_activos: 'Asset Distribution',
 	view_main_pie_pasivos: 'Liability Distribution',
 	view_main_pie_subcuentas: ' — Sub-accounts',
+	view_main_pie_level1: 'Level 1',
+	view_main_pie_level2: 'Level 2 (sub-accounts)',
 	view_main_open_daily_note: 'Open daily note',
 
 	// ── Sidebar view ──────────────────────────────────────────────────────────
@@ -385,6 +388,19 @@ const en: Record<LangKeys, string> = {
 	view_accounts_col_month: 'Month',
 	view_accounts_col_flow: 'Flow',
 	view_accounts_col_balance: 'Balance',
+
+	// ── Card info modals ──────────────────────────────────────────────────────
+	card_info_btn_title: 'See how this is calculated',
+	card_info_net_worth_title: 'Net Worth',
+	card_info_net_worth_desc: 'Net worth is the difference between your total assets and your total liabilities. It represents your true financial wealth at this moment.',
+	card_info_net_worth_formula: 'Net Worth = {assets} (Assets) − {liabilities} (Liabilities)',
+	card_info_assets_title: 'Total Assets',
+	card_info_assets_desc: 'Sum of the balances of all your asset accounts (bank accounts, investments, cash, etc.).',
+	card_info_liabilities_title: 'Total Liabilities',
+	card_info_liabilities_desc: 'Sum of the balances of all your liability accounts (credit cards, loans, credits, etc.).',
+	card_info_col_account: 'Account',
+	card_info_col_balance: 'Balance',
+	card_info_total: 'Total',
 
 	// ── Budget view ───────────────────────────────────────────────────────────
 	view_budget_title: 'Budgets',

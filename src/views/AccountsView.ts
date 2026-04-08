@@ -1,7 +1,7 @@
-import { ItemView, WorkspaceLeaf } from 'obsidian';
+import { App, ItemView, Modal, WorkspaceLeaf, setIcon } from 'obsidian';
 import { t, tn } from '../i18n';
 import { VIEW_TYPE_ACCOUNTS, ACCT } from '../constants';
-import { ISimpleLedgerPlugin, Transaction } from '../types';
+import { ISimpleLedgerPlugin, PluginSettings, Transaction } from '../types';
 import { LedgerParser } from '../parser/LedgerParser';
 import { fmtAmount } from '../utils/formatting';
 import { ManageAccountsModal } from '../modals/ManageAccountsModal';
@@ -82,10 +82,33 @@ export class AccountsView extends ItemView {
 			.reduce((s, [, v]) => s + v, 0));
 		const netWorth = totalAssets - totalLiabilities;
 
+		// Build per-account breakdowns for info modals
+		const assetEntries = Object.entries(balances)
+			.filter(([k]) => k.startsWith(ACCT.assets))
+			.sort((a, b) => b[1] - a[1]);
+		const liabEntries = Object.entries(balances)
+			.filter(([k]) => k.startsWith(ACCT.liabilities))
+			.map(([k, v]) => [k, Math.abs(v)] as [string, number])
+			.sort((a, b) => b[1] - a[1]);
+
 		const summary = container.createDiv('sl-accounts-summary');
-		this._summaryCard(summary, t('view_accounts_card_net_worth'), netWorth, netWorth >= 0 ? 'sl-card-balance' : 'sl-card-expense');
-		this._summaryCard(summary, t('view_accounts_card_assets'), totalAssets, 'sl-card-income');
-		this._summaryCard(summary, t('view_accounts_card_liabilities'), totalLiabilities, 'sl-card-expense');
+		this._summaryCard(
+			summary, t('view_accounts_card_net_worth'), netWorth,
+			netWorth >= 0 ? 'sl-card-balance' : 'sl-card-expense',
+			{ titleKey: 'card_info_net_worth_title', descKey: 'card_info_net_worth_desc',
+			  formula: t('card_info_net_worth_formula', { assets: fmtAmount(totalAssets, settings), liabilities: fmtAmount(totalLiabilities, settings) }),
+			  entries: [] }
+		);
+		this._summaryCard(
+			summary, t('view_accounts_card_assets'), totalAssets, 'sl-card-income',
+			{ titleKey: 'card_info_assets_title', descKey: 'card_info_assets_desc',
+			  formula: null, entries: assetEntries }
+		);
+		this._summaryCard(
+			summary, t('view_accounts_card_liabilities'), totalLiabilities, 'sl-card-expense',
+			{ titleKey: 'card_info_liabilities_title', descKey: 'card_info_liabilities_desc',
+			  formula: null, entries: liabEntries }
+		);
 
 		// ── Category tabs ────────────────────────────────────────────────────────
 		const tabs = container.createDiv('sl-accounts-tabs');
@@ -318,8 +341,19 @@ export class AccountsView extends ItemView {
 
 	// ── Helpers ──────────────────────────────────────────────────────────────
 
-	private _summaryCard(parent: HTMLElement, title: string, amount: number, cls: string): void {
-		const card = parent.createDiv(`sl-card ${cls}`);
+	private _summaryCard(
+		parent: HTMLElement, title: string, amount: number, cls: string,
+		info: { titleKey: string; descKey: string; formula: string | null; entries: [string, number][] }
+	): void {
+		const card = parent.createDiv(`sl-card ${cls} sl-card-has-info`);
+
+		const infoBtn = card.createEl('button', { cls: 'sl-card-info-btn', attr: { title: t('card_info_btn_title') } });
+		setIcon(infoBtn, 'info');
+		infoBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			new CardInfoModal(this.app, this.plugin.settings, t(info.titleKey as any), t(info.descKey as any), info.formula, amount, info.entries).open();
+		});
+
 		card.createDiv({ text: title, cls: 'sl-card-title' });
 		card.createDiv({ text: fmtAmount(Math.abs(amount), this.plugin.settings), cls: 'sl-card-amount' });
 	}
@@ -413,4 +447,72 @@ export class AccountsView extends ItemView {
 	}
 
 	async onClose(): Promise<void> {}
+}
+
+class CardInfoModal extends Modal {
+	private settings: PluginSettings;
+	private title: string;
+	private desc: string;
+	private formula: string | null;
+	private total: number;
+	private entries: [string, number][];
+
+	constructor(
+		app: App,
+		settings: PluginSettings,
+		title: string,
+		desc: string,
+		formula: string | null,
+		total: number,
+		entries: [string, number][]
+	) {
+		super(app);
+		this.settings = settings;
+		this.title = title;
+		this.desc = desc;
+		this.formula = formula;
+		this.total = total;
+		this.entries = entries;
+	}
+
+	onOpen(): void {
+		const { contentEl } = this;
+		contentEl.empty();
+		contentEl.addClass('simple-ledger-modal');
+
+		contentEl.createEl('h2', { text: this.title, cls: 'sl-card-info-modal-title' });
+		contentEl.createEl('p', { text: this.desc, cls: 'sl-card-info-modal-desc' });
+
+		if (this.formula) {
+			const formulaBox = contentEl.createDiv('sl-card-info-formula');
+			formulaBox.createEl('code', { text: this.formula });
+		}
+
+		if (this.entries.length > 0) {
+			const table = contentEl.createEl('table', { cls: 'sl-card-info-table' });
+			const thead = table.createEl('thead');
+			const hr = thead.createEl('tr');
+			hr.createEl('th', { text: t('card_info_col_account') });
+			hr.createEl('th', { text: t('card_info_col_balance'), cls: 'sl-td-right' });
+
+			const tbody = table.createEl('tbody');
+			for (const [acct, val] of this.entries) {
+				const tr = tbody.createEl('tr');
+				tr.createEl('td', { text: acct, cls: 'sl-card-info-acct' });
+				tr.createEl('td', { text: fmtAmount(Math.abs(val), this.settings), cls: 'sl-td-right sl-card-info-amt' });
+			}
+
+			const tfoot = table.createEl('tfoot');
+			const fr = tfoot.createEl('tr', { cls: 'sl-card-info-total-row' });
+			fr.createEl('td', { text: t('card_info_total') });
+			fr.createEl('td', { text: fmtAmount(Math.abs(this.total), this.settings), cls: 'sl-td-right' });
+		}
+
+		const closeBtn = contentEl.createEl('button', { text: t('common_close'), cls: 'sl-cancel-btn sl-card-info-close' });
+		closeBtn.addEventListener('click', () => this.close());
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
+	}
 }

@@ -7,22 +7,23 @@ Personal finance tracking inside [Obsidian](https://obsidian.md), inspired by [l
 ## Features
 
 - **Double-entry bookkeeping** — every transaction is always balanced
-- **Multiple views** — sidebar summary, full dashboard, quick-add panel, and recurring payments panel
-- **Account hierarchy** — organize accounts with unlimited nesting (e.g. `Gastos:Comida:Restaurantes`)
+- **Multiple views** — sidebar summary, full dashboard, accounts panel, quick-add panel, recurring payments panel, and budgets panel
+- **Account hierarchy** — organize accounts with unlimited nesting (e.g. `Expenses:Food:Restaurants`)
 - **Recurring transactions** — schedule weekly, monthly, or yearly payments and track which ones are paid
 - **Credit / debt management** — calculate interest, monthly installments, and track payoff progress
+- **Budgets** — set monthly or yearly spending limits per account and track progress inline
 - **Transaction notes** — attach a note to any transaction for extra context
-- **Charts** — cash flow chart (daily bars + cumulative net line), donut pie chart for expense/income distribution, and grouped bar chart for period comparisons; all embeddable as code blocks in any note
+- **Charts** — cash flow chart (daily bars + cumulative net line), donut pie chart, and grouped bar chart; all embeddable as code blocks in any note
 - **Import transactions** — paste ledger-formatted text and preview before saving; includes an AI prompt helper to generate entries from bank emails
 - **Export to CSV** — download a filtered or full transaction list as a spreadsheet
-- **Inline account management** — add, rename, delete, and configure accounts directly in the dashboard without leaving the view
+- **Inline account management** — add, rename, delete, and configure accounts directly in the panel without leaving the view
 - **Excluded-from-balance accounts** — mark accounts like pension/AFP funds so they are tracked but not counted in your liquid balance cards
-- **Semantic account coloring** — expenses, income, and liabilities each have a distinct color in the account tree and transaction list
-- **Monthly summary** — sidebar shows current-month income, expenses, and net at a glance
-- **Quick-filter commands** — keyboard shortcuts to instantly filter by current month, current year, expenses only, or income only
-- **Markdown code blocks** — embed live balance tables, transaction registers, and summaries in any note
+- **Semantic account coloring** — expenses, income, and liabilities each have a distinct color in the account tree and transaction list, adapting automatically to your Obsidian theme
+- **Markdown code blocks** — embed live balance tables, transaction registers, summaries, charts, budgets, and debt lists in any note
 - **Plain-text storage** — your data lives in a `.ledger` file compatible with ledger-cli
 - **Customizable currency** — symbol, position, and decimal places
+- **Bilingual** — full English and Spanish support; language follows your Obsidian locale setting
+- **Obsidian URI support** — register transactions from outside Obsidian via URL (home screen shortcuts, browser bookmarks, scripts)
 
 ---
 
@@ -46,8 +47,8 @@ Personal finance tracking inside [Obsidian](https://obsidian.md), inspired by [l
 
 ## Getting Started
 
-1. Open the sidebar by clicking the **wallet icon** in the left ribbon, or run `Ctrl+P` → **Simple Ledger: Abrir panel lateral**
-2. Click **+ Nuevo** to add your first transaction
+1. Click the **wallet icon** in the left ribbon to open the sidebar panel
+2. Click **+ New** to add your first transaction
 3. That's it — your data is saved automatically in a `.ledger` file inside your vault
 
 ---
@@ -58,202 +59,89 @@ The main sidebar gives you a real-time overview of your finances:
 
 | Section | Description |
 |---------|-------------|
-| **Summary cards** | Total income, total expenses, and net balance (accounts excluded from balance are not counted) |
-| **Monthly summary** | Current-month income, expenses, and net in a second row of cards |
-| **Accounts** | Hierarchical tree showing the balance of each account, color-coded by type |
-| **Transactions** | Paginated list of recent transactions — click any row to edit it |
-
-### Sidebar buttons
-
-| Button | Action |
-|--------|--------|
-| **+ Nuevo** | Open the add-transaction form |
-| **↻** | Reload data from the ledger file |
-| **⚙** (next to Accounts) | Open the account manager modal |
+| **Summary cards** | Total income, total expenses, and net balance for the current month |
+| **Account tree** | Hierarchical tree showing each account's balance, color-coded by type |
+| **Recent transactions** | Paginated list of transactions — click any row to edit |
 
 ---
 
 ## Adding Transactions
 
-Click **+ Nuevo** (or run the command **Nueva transaccion**) to open the transaction form:
+Click **+ New** (or run the command **New transaction**) to open the transaction form:
 
 | Field | Description |
 |-------|-------------|
-| **Fecha** | Transaction date (defaults to today) |
-| **Descripcion** | Name or description (e.g. "Grocery store", "March salary") |
-| **Monto** | Amount in your currency |
-| **Tipo** | Type: Expense, Income, or Transfer |
-| **Destino** | Account receiving the money |
-| **Origen** | Account the money comes from |
-| **Estado** | Status: Confirmed (`*`), Pending (`!`), or Unmarked |
-| **Notas** | Optional free-text note attached to the transaction |
+| **Date** | Transaction date (defaults to today) |
+| **Description** | Name or description (e.g. "Grocery store", "March salary") |
+| **Amount** | Amount in your currency |
+| **Type** | Expense, Income, or Transfer |
+| **To** | Account receiving the money |
+| **From** | Account the money comes from |
+| **Status** | Confirmed (`*`), Pending (`!`), or Unmarked |
+| **Notes** | Optional free-text note |
 
 ### Transaction types
 
 - **Expense** — money leaves an asset account and enters an expense account
-  - Example: Grocery shopping → `Expenses:Food` ← `Assets:Bank`
+  - Example: `Expenses:Food` ← `Assets:Bank`
 - **Income** — money enters an asset account from an income account
-  - Example: Receiving salary → `Assets:Bank` ← `Income:Salary`
+  - Example: `Assets:Bank` ← `Income:Salary`
 - **Transfer** — money moves between two asset accounts
-  - Example: Withdrawing cash → `Assets:Cash` ← `Assets:Bank`
-
----
-
-## Editing and Deleting Transactions
-
-Click on any transaction row in the sidebar or dashboard to open the edit form (a pencil icon ✎ appears on hover).
-
-From the editor you can:
-- Modify any field (date, description, amount, accounts, status, notes)
-- **Save** — updates the transaction in the ledger file
-- **Delete** — removes the transaction (with a confirmation dialog)
+  - Example: `Assets:Cash` ← `Assets:Bank`
 
 ---
 
 ## Dashboard (Main Panel)
 
-Open the full dashboard with `Ctrl+P` → **Abrir panel central** or via the bar-chart icon in the ribbon.
+Open with the bar-chart icon in the ribbon or via the command palette.
 
 The dashboard includes:
-- **Filters** — date range, account, free-text search
+- **Filter bar** — date range, account, and free-text search
 - **Quick filter buttons** — Today / This Month / This Year / All
-- **Charts** — toggle between cash flow chart and expense/income distribution pie chart
-- **Transaction list** — mobile-friendly card layout showing date, payee, accounts, and amount; click any row to edit
-- **Account panel** — balance breakdown per account with semantic coloring; click ⚙ to open the inline account manager
-- **Action buttons** — **+ Nueva** (add transaction), **⬆ Importar** (import from text), **⬇ CSV** (export), **↻** (reload)
+- **Summary cards** — month income, month expenses, total assets, total liabilities
+- **Charts** — toggle between cash flow and distribution pie chart
+- **Transaction list** — card layout with date, payee, accounts, and amount; click any row to edit
+- **Account panel** — balance breakdown per account; click ⚙ to open the inline account manager
 
 ### Charts
 
-The chart section has two modes toggled with the **Flujo de caja** / **Distribución** buttons:
+| Mode | Description |
+|------|-------------|
+| **Cash flow** | Bar chart of daily income/expenses with a cumulative net line |
+| **Distribution** | Donut pie chart breaking down spending or income by account |
 
-**Cash flow** — bar chart of daily income and expenses overlaid with a cumulative net line. Always loaded.
+Pie chart controls:
+- **Type** — Expenses or Income
+- **Level 1** — top-level sub-accounts (e.g. `Food`, `Transport`)
+- **Level 2** — deeper sub-accounts (e.g. `Food:Restaurants`, `Food:Supermarket`)
 
-**Distribución** — donut pie chart showing spending (or income) breakdown by account. Only built when you switch to this mode. Sub-controls:
-
-| Control | Options | Description |
-|---------|---------|-------------|
-| Type | **Gastos** / **Ingresos** | Which account type to break down |
-| Level | **Nivel 1** / **Nivel 2** | Top-level sub-accounts vs. deeper sub-accounts |
-
-- Nivel 1 groups by the first sub-account level (e.g. `Comida`, `Transporte`)
-- Nivel 2 groups by the second level (e.g. `Comida:Restaurantes`, `Comida:Supermercado`)
-- If there are more than 9 categories, the smallest are grouped as **Otros**
-- Hover a slice to see the exact amount and percentage in a tooltip
-
-### Inline account manager
-
-Clicking ⚙ in the account panel opens a management panel directly in the dashboard without navigating away:
-
-- **Tabs** — switch between Gastos, Ingresos, Activos, and Pasivos
-- **Sorted list** — accounts displayed alphabetically
-- **Add** — type a name, select prefix, press **+** (prefix is pre-filled based on the active tab)
-- **Rename** — click ✎ to edit inline, press Enter to save; all existing transactions are updated automatically
-- **Delete** — click × to remove an account
-- **Exclude from balance** — click ◎ to exclude an account from the summary balance cards (shown with ⊘ when excluded); useful for accounts whose funds are not freely accessible (e.g. pension/AFP)
-
-### Importing transactions
-
-Click **⬆ Importar** to open the import dialog:
-
-1. Paste one or more transactions in ledger-cli format into the text area
-2. The preview updates live — valid transactions are listed with date, payee, and amount
-3. Click **📋 Copiar cuentas para IA** to copy all your accounts and format instructions to the clipboard, so you can paste them into ChatGPT or Claude to generate entries from a bank email or statement
-4. Click **Importar** to save all previewed transactions to your ledger file
-
-### Exporting to CSV
-
-Click **⬇ CSV** to download the currently filtered transactions as a comma-separated file. If no filter is active, all transactions are exported.
-
-### Quick-filter commands
-
-The following commands are available from the command palette (`Ctrl+P`) and can be assigned keyboard shortcuts:
-
-| Command | Action |
-|---------|--------|
-| **Filtrar: mes actual** | Show transactions from the current calendar month |
-| **Filtrar: año actual** | Show transactions from the current calendar year |
-| **Filtrar: solo gastos** | Show only expense accounts |
-| **Filtrar: solo ingresos** | Show only income accounts |
-| **Limpiar filtros** | Reset all active filters |
+If there are more than 9 categories, the smallest are grouped as **Others**. Hover a slice to see the exact amount and percentage.
 
 ---
 
-## Quick Add Panel
+## Accounts Panel
 
-For fast data entry, open the Quick Add panel with `Ctrl+P` → **Agregar movimientos**.
+Open with the landmark icon in the ribbon or via **Manage accounts** in the command palette.
 
-- Select transaction type (Expense / Income / Transfer / Debt) with one click
-- Fill in date, description, amount, and accounts
-- **Recent items** shown below for quick repeating of common transactions
+Shows summary cards for **Net Worth**, **Total Assets**, and **Total Liabilities** — each with an info button (ⓘ) that explains exactly how the value is calculated and lists the individual accounts that compose it.
 
----
-
-## Account Management
-
-Accounts can be managed in two ways:
-- **Inline panel** — click ⚙ in the dashboard account section for an embedded manager
-- **Modal** — run `Ctrl+P` → **Gestionar cuentas** for a standalone window
-
-Both offer the same functionality.
-
-### Account types
-
-| Type | Prefix | Purpose | Color |
-|------|--------|---------|-------|
-| **Gastos (Expenses)** | `Gastos:` | Where money goes | Red |
-| **Ingresos (Income)** | `Ingresos:` | Where money comes from | Green |
-| **Activos (Assets)** | `Activos:` | Things you own | Neutral |
-| **Pasivos (Liabilities)** | `Pasivos:` | What you owe | Yellow/Orange |
-
-### Actions
-
-- **Add account** — type a name, select the prefix, and press **+**
-- **Rename account** — click ✎, edit inline, press Enter. All existing transactions are updated automatically.
-- **Delete account** — click × to remove an account
-- **Exclude from balance** — click ◎ to toggle exclusion. Excluded accounts (shown as ⊘) are still tracked and visible in the tree, but their balance is not counted in the summary cards. This is useful for accounts like pension funds (AFP) whose money is not freely accessible.
-
-> **Note:** Excluding an account from balance only affects the summary cards. The account still appears in the tree, and all its transactions remain in the ledger.
-
-### Sub-accounts
-
-Use `:` to create hierarchies. You can nest as many levels as you need:
-
-```
-Gastos:Comida
-Gastos:Comida:Restaurantes
-Gastos:Comida:Supermercado
-Activos:Banco:BBVA
-Activos:Banco:Santander
-```
-
-The sidebar shows the aggregated balance at each parent level.
-
-### Using credit card accounts
-
-Liability accounts like `Pasivos:TarjetaCredito` require two specific transaction types that are available in both the transaction form and the Quick Add panel:
-
-| Type | Destination | Source | When to use |
-|------|-------------|--------|-------------|
-| **Cargo tarjeta** | `Gastos:*` | `Pasivos:TarjetaCredito` | Buying something with the card |
-| **Pago tarjeta** | `Pasivos:TarjetaCredito` | `Activos:Banco` | Paying the card balance |
-
-Example flow:
-1. You buy groceries with your credit card → **Cargo tarjeta**, amount `$85,000`, to `Gastos:Comida`, from `Pasivos:TarjetaCredito`
-2. At the end of the month you pay the card → **Pago tarjeta**, amount `$85,000`, to `Pasivos:TarjetaCredito`, from `Activos:Banco`
-
-The `Pasivos:TarjetaCredito` account will show a **negative** balance — this is correct in double-entry bookkeeping. The absolute value is what you owe.
+Below the cards, accounts are listed by category (Assets, Liabilities, Income, Expenses) with:
+- Current balance
+- Monthly flow (this month vs last month)
+- 6-month sparkline
+- Full transaction history when you expand an account
 
 ---
 
-## Recurring Transactions
+## Recurring Transactions Panel
 
-Open the recurring panel with `Ctrl+P` → **Abrir panel de recurrentes** or via the repeat icon in the ribbon.
+Open via the calendar icon in the ribbon or the command palette.
 
 ### Creating a recurring transaction
 
-1. Click **+ Nueva** in the recurring panel
-2. Fill in: name, amount, source/destination accounts, frequency, and day of the month/week
-3. Save — the transaction is tracked and its next due date is calculated automatically
+1. Click **+ New** in the recurring panel
+2. Fill in: name, amount, source/destination accounts, frequency, and due day
+3. Save — the next due date is calculated automatically
 
 ### Frequency options
 
@@ -263,246 +151,221 @@ Open the recurring panel with `Ctrl+P` → **Abrir panel de recurrentes** or via
 | Weekly | Day of the week (Monday–Sunday) |
 | Yearly | Month and day of the year |
 
-### Panel tabs
+### Due date indicators
 
-| Tab | Shows |
-|-----|-------|
-| **All** | Every recurring transaction |
-| **Pending** | Due but not yet paid this period |
-| **Paid** | Already paid this period |
-| **Credits** | Linked loan/credit payments |
+- **Overdue** (past due, unpaid) — shown with a red ⚠ warning
+- **Due today** — highlighted in orange
+- **Upcoming** — shown with the future date
 
-### Summary cards
+---
 
-The recurring panel header shows:
-- Number of pending payments
-- Number of paid payments
-- Total monthly commitment
+## Budgets Panel
+
+Open with the target icon in the ribbon or via the command palette.
+
+### Creating a budget
+
+1. Click **New budget** in the panel header
+2. Set the account to track, the limit amount, and the period (monthly or yearly)
+3. Save — the panel immediately shows spending progress
+
+Each budget card shows:
+- A progress bar (green → yellow → red as you approach the limit)
+- Amount spent vs. the limit
+- Remaining amount or how much you've exceeded the limit
+
+### Editing and deleting
+
+Click any budget card to expand an inline edit form — no modal required. You can change the account, amount, or period, or delete the budget.
 
 ---
 
 ## Credit / Debt Management
 
-Open the credit wizard with `Ctrl+P` → **Nuevo credito**.
+Open the credit wizard via the command palette → **New credit**.
 
 ### Setting up a credit/loan
 
-1. Enter the loan **name** (will become a `Pasivos:` account)
-2. Enter the **principal** (amount received) and **total debt** (principal + all interest and fees)
-3. Enter the **number of months** for repayment
-4. Select the **asset account** payments will come from and the **payment day**
-5. The wizard automatically calculates:
-   - Monthly payment amount
-   - Total interest / fee portion
-   - Per-payment principal vs. interest split
-
-### What gets created
-
-- A `Pasivos:<name>` liability account
-- A recurring monthly payment linked to that account
-- An interest sub-account (`Gastos:Intereses:<name>`) if there is a difference between principal and total debt
-- A ledger transaction recording the initial deposit to your bank
+1. Enter the loan name (becomes a `Liabilities:` account)
+2. Enter the principal (amount received) and total debt (principal + all interest)
+3. Enter the number of months and the asset account payments come from
+4. The wizard calculates: monthly payment, interest portion, and per-payment principal/interest split
 
 ### Tracking payoff
 
-Each time you mark a credit payment as paid, the plugin registers two postings:
-- Reduction of the liability account (principal portion)
-- Expense entry for the interest portion
+Each credit payment records two postings automatically:
+- Reduction of the liability (principal portion)
+- Expense entry for the interest (goes to `Expenses:Interest:<name>`)
 
-This keeps your balance sheet accurate throughout the loan term.
+---
+
+## Account Management
+
+Accounts can be managed from:
+- The **Accounts panel** → click ⚙ next to any category
+- The **Dashboard** → click ⚙ in the account tree section
+- The command palette → **Manage accounts**
+
+### Account types and prefixes
+
+| Type | Default prefix | Purpose | Color |
+|------|---------------|---------|-------|
+| Expenses | `Expenses:` | Where money goes | Red |
+| Income | `Income:` | Where money comes from | Green |
+| Assets | `Assets:` | Things you own | Neutral |
+| Liabilities | `Liabilities:` | What you owe | Orange |
+
+> The prefixes are configurable in Settings → Simple Ledger → Account prefixes. Language presets for English and Spanish are available.
+
+### Actions
+
+- **Add** — type a name and press **+**
+- **Rename** — click ✎, edit inline, press Enter. All existing transactions update automatically.
+- **Delete** — click ×
+- **Exclude from balance** — click ◎ to toggle. Excluded accounts are still tracked and shown, but not counted in summary cards (useful for pension/AFP accounts).
+
+### Sub-accounts
+
+Use `:` to create hierarchies:
+
+```
+Expenses:Food
+Expenses:Food:Restaurants
+Expenses:Food:Supermarket
+Assets:Bank:BBVA
+Assets:Bank:Santander
+```
 
 ---
 
 ## Markdown Code Blocks
 
-Embed live financial reports in any Obsidian note using special code blocks. The reports update automatically whenever your ledger file changes.
+Embed live financial reports in any Obsidian note. Reports update automatically when your ledger file changes.
 
-### Balance
+### Available blocks
 
-Shows the balance of each account:
-
-````
-```ledger-balance
-```
-````
-
-### Register
-
-Shows a detailed list of transactions:
-
-````
-```ledger-register
-```
-````
-
-### Summary
-
-Shows income, expenses, and net grouped by period:
-
-````
-```ledger-summary
-```
-````
-
-### Pie chart
-
-Shows a donut pie chart breaking down spending or income by account:
-
-````
-```ledger-pie
-```
-````
-
-### Cash flow chart
-
-Shows daily income and expense bars with a cumulative net line:
-
-````
-```ledger-cashflow
-```
-````
-
-### Bar chart
-
-Shows grouped bars of income vs expenses per month or year — useful for comparing periods at a glance:
-
-````
-```ledger-bar
-```
-````
-
----
+| Block | Description |
+|-------|-------------|
+| `ledger-balance` | Balance table per account |
+| `ledger-register` | Detailed transaction list |
+| `ledger-summary` | Income, expenses, and net grouped by period |
+| `ledger-pie` | Donut pie chart by account |
+| `ledger-cashflow` | Daily bars + cumulative net line |
+| `ledger-bar` | Grouped income vs expenses per period |
+| `ledger-debts` | Upcoming recurring payments and debts |
+| `ledger-budget` | Budget progress bars |
 
 ### Filter options
 
-All block types accept filter options, one per line, in `key: value` format:
+All block types accept options in `key: value` format, one per line. Keys are in English:
 
 | Option | Applies to | Description | Example |
 |--------|-----------|-------------|---------|
-| `cuenta` | all | Filter by account name (partial match) | `cuenta: Gastos` |
-| `desde` | all | Start date (inclusive) | `desde: 2026/03/01` |
-| `hasta` | all | End date (inclusive) | `hasta: 2026/03/31` |
-| `mes` | all | Shortcut for a full calendar month | `mes: 2026/03` |
-| `año` | all | Shortcut for a full calendar year | `año: 2026` |
-| `hoy` | all | Shortcut for today only | `hoy` |
-| `buscar` | all | Search in description or account name | `buscar: supermercado` |
-| `limite` | balance, register | Maximum number of results | `limite: 5` |
-| `orden` | balance, register | Sort order: `asc` or `desc` (default: `desc`) | `orden: asc` |
-| `periodo` | summary, bar | Group by `mes` (monthly) or `anual` (yearly) | `periodo: anual` |
-| `tipo` | pie | Account type: `gastos`, `ingresos`, `activos`, `pasivos` (default: `gastos`) | `tipo: ingresos` |
-| `nivel` | pie | Grouping depth: `1` = top sub-accounts, `2` = deeper sub-accounts (default: `1`) | `nivel: 2` |
+| `account` | all | Filter by account name (partial match) | `account: Expenses` |
+| `from` | all | Start date (inclusive) | `from: 2026/03/01` |
+| `to` | all | End date (inclusive) | `to: 2026/03/31` |
+| `month` | all | Shortcut for a full calendar month | `month: 2026/03` |
+| `year` | all | Shortcut for a full calendar year | `year: 2026` |
+| `today` | all | Shortcut for today only (no value needed) | `today` |
+| `search` | all | Search in description or account name | `search: supermarket` |
+| `limit` | balance, register | Maximum number of results | `limit: 5` |
+| `order` | balance, register | Sort order: `asc` or `desc` (default: `desc`) | `order: asc` |
+| `period` | summary, bar | Group by `month` or `year` | `period: year` |
+| `type` | pie | Account type: `expenses`, `income`, `assets`, `liabilities` | `type: income` |
+| `level` | pie | Grouping depth: `1` = top, `2` = sub-accounts | `level: 2` |
 
 ### Practical examples
 
 **Expenses for March 2026:**
 ````
 ```ledger-balance
-mes: 2026/03
-cuenta: Gastos
+month: 2026/03
+account: Expenses
 ```
 ````
 
 **Last 5 food transactions:**
 ````
 ```ledger-register
-cuenta: Comida
-limite: 5
+account: Food
+limit: 5
 ```
 ````
 
 **Yearly summary:**
 ````
 ```ledger-summary
-año: 2026
-periodo: anual
+year: 2026
+period: year
 ```
 ````
 
 **Today's transactions:**
 ````
 ```ledger-register
-hoy
+today
 ```
 ````
 
-**Search by keyword:**
-````
-```ledger-register
-buscar: supermercado
-orden: asc
-```
-````
-
-**Expense breakdown for the current month (top-level):**
+**Expense breakdown for the current month:**
 ````
 ```ledger-pie
-tipo: gastos
-nivel: 1
-mes: 2026/03
+type: expenses
+level: 1
+month: 2026/03
 ```
 ````
 
 **Income sources for the year:**
 ````
 ```ledger-pie
-tipo: ingresos
-año: 2026
-```
-````
-
-**Detailed expense sub-accounts:**
-````
-```ledger-pie
-tipo: gastos
-nivel: 2
+type: income
+year: 2026
 ```
 ````
 
 **Cash flow for Q1 2026:**
 ````
 ```ledger-cashflow
-desde: 2026/01/01
-hasta: 2026/03/31
+from: 2026/01/01
+to: 2026/03/31
 ```
 ````
 
-**Monthly income vs expenses for the current year:**
+**Monthly income vs expenses:**
 ````
 ```ledger-bar
-año: 2026
-periodo: mes
+year: 2026
+period: month
 ```
 ````
 
 **Yearly comparison (all time):**
 ````
 ```ledger-bar
-periodo: anual
+period: year
 ```
 ````
 
----
+**Upcoming payments:**
+````
+```ledger-debts
+```
+````
 
-## Commands
+**Budget progress for all accounts:**
+````
+```ledger-budget
+```
+````
 
-All commands are accessible from the command palette (`Ctrl+P`) and can be assigned keyboard shortcuts:
-
-| Command | Description |
-|---------|-------------|
-| **Nueva transaccion** | Open the add-transaction form |
-| **Abrir panel lateral** | Open the main sidebar |
-| **Abrir panel central** | Open the full dashboard |
-| **Abrir archivo ledger** | Open the `.ledger` file for direct editing |
-| **Gestionar cuentas** | Open the account manager |
-| **Abrir panel de recurrentes** | Open the recurring transactions panel |
-| **Abrir panel de nuevos movimientos** | Open the quick-add panel |
-| **Nuevo credito** | Open the credit/loan wizard |
-| **Importar transacciones** | Open the import dialog |
-| **Filtrar: mes actual** | Filter dashboard to current month |
-| **Filtrar: año actual** | Filter dashboard to current year |
-| **Filtrar: solo gastos** | Filter dashboard to expense accounts |
-| **Filtrar: solo ingresos** | Filter dashboard to income accounts |
-| **Limpiar filtros** | Reset all dashboard filters |
+**Budget for a specific account:**
+````
+```ledger-budget
+account: Expenses:Food
+period: monthly
+```
+````
 
 ---
 
@@ -512,44 +375,32 @@ Go to **Settings** → **Community plugins** → **Simple Ledger**:
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| **Archivo de transacciones** | Path to the `.ledger` file inside your vault | `Finanzas.ledger` |
-| **Simbolo de moneda** | Currency symbol to display (e.g. `$`, `€`, `£`, `CLP`) | `$` |
-| **Moneda despues del numero** | Display as "100 €" instead of "$100" | Off |
-| **Decimales** | Number of decimal places (use `0` for currencies like CLP) | `2` |
-| **Gestionar cuentas** | Add, rename, or remove default accounts | — |
+| **Ledger file** | Path to the `.ledger` file inside your vault | `Finances.ledger` |
+| **Currency symbol** | Symbol to display (e.g. `$`, `€`, `£`) | `$` |
+| **Currency after number** | Display as `100 €` instead of `$100` | Off |
+| **Decimal places** | Decimal places to show (use `0` for currencies like CLP) | `2` |
+| **Thousand separator** | Character used to separate thousands | `,` |
+| **Account prefixes** | Prefix for each account type | `Expenses:`, `Income:`, `Assets:`, `Liabilities:` |
+| **Status bar** | Show upcoming payments in the Obsidian status bar | On |
+| **Lookahead days** | How many days ahead to show in the status bar | `7` |
 
-### Default accounts
+### Language presets
 
-The plugin ships with the following accounts:
-
-| Category | Accounts |
-|----------|----------|
-| **Gastos (Expenses)** | Comida, Transporte, Hogar, Salud, Entretenimiento, Ropa, Educacion, Servicios, Otros |
-| **Ingresos (Income)** | Salario, Freelance, Otros |
-| **Activos (Assets)** | Banco, Efectivo, Ahorros |
-| **Pasivos (Liabilities)** | TarjetaCredito, Prestamo |
-
-All of these can be added to, renamed, or deleted from the account manager.
+Settings include **ES** and **EN** preset buttons that configure all account prefixes and default accounts to the chosen language in one click. A confirmation dialog warns you if you have existing transactions, since renaming prefixes does not update historical data automatically.
 
 ---
 
 ## Understanding Double-Entry Bookkeeping
 
-Every transaction in Simple Ledger has at least two postings that cancel each other out. This guarantees your books are always balanced.
-
-### Why is the total balance always $0?
-
-Because that is correct. Every peso (or dollar, or euro) that enters one account must leave another:
+Every transaction has at least two postings that cancel each other out — this guarantees your books are always balanced.
 
 ```
-Activos:Banco        +$1,000,000   (your bank balance goes up)
-Ingresos:Salario     -$1,000,000   (the source is recorded)
+Assets:Bank          +$1,000    (bank balance goes up)
+Income:Salary        -$1,000    (source is recorded)
 Total = $0
 ```
 
 If the total is NOT zero, there is an error in a transaction.
-
-### How each type works internally
 
 | Type | Debit (receives) | Credit (gives) |
 |------|-----------------|----------------|
@@ -561,57 +412,38 @@ If the total is NOT zero, there is an error in a transaction.
 
 ## The `.ledger` File Format
 
-Your data is stored as a plain-text file compatible with [ledger-cli](https://ledger-cli.org/). You can open and edit it directly with `Ctrl+P` → **Abrir archivo ledger**, or with any text editor.
+Your data is stored as plain text compatible with [ledger-cli](https://ledger-cli.org/):
 
 ```ledger
 ; Comment
-2026/03/01 * Salario Marzo
-    ; Deposito quincena
-    Activos:Banco              $1000000
-    Ingresos:Salario
+2026/03/01 * March Salary
+    ; Bi-weekly deposit
+    Assets:Bank              $1,000.00
+    Income:Salary
 
-2026/03/02 * Supermercado
-    Gastos:Comida              $85000
-    Activos:Banco
+2026/03/02 * Supermarket
+    Expenses:Food            $85.00
+    Assets:Bank
 
-2026/03/05 * Pago cuota credito
-    Pasivos:CreditoBanco       $150000
-    Activos:Banco
+2026/03/05 * Loan payment
+    Liabilities:BankLoan     $150.00
+    Assets:Bank
 ```
 
 ### Format rules
 
-- The first line of each transaction is: `DATE [STATUS] DESCRIPTION`
-- A line starting with `;` immediately after the date line is treated as a **note** for that transaction
-- Subsequent lines (indented) are account postings
-- The last posting can omit the amount — it is calculated automatically to balance the transaction
-- Status flags: `*` = confirmed, `!` = pending, no flag = unmarked
-- Comments begin with `;`
+- First line: `DATE [STATUS] DESCRIPTION`
+- A `;` line immediately after the date line is a **note** for that transaction
+- Indented lines are account postings
+- The last posting can omit the amount — it auto-balances
+- Status: `*` = confirmed, `!` = pending, no flag = unmarked
 - Dates use `YYYY/MM/DD` format
-
----
-
-## Example: Recording a Bank Loan
-
-1. Add a `Pasivos:CreditoBancoChile` account in the account manager (or use the credit wizard)
-2. When you receive the loan (bank deposits the money):
-   - Type: Transfer
-   - Destination: `Activos:Banco`
-   - Source: `Pasivos:CreditoBancoChile`
-   - This records that your bank balance increases but so does your debt
-3. When you pay a monthly installment:
-   - Type: Transfer
-   - Destination: `Pasivos:CreditoBancoChile`
-   - Source: `Activos:Banco`
-   - This records that your debt decreases along with your bank balance
-
-Using the **credit wizard** automates steps 2 and 3 entirely.
 
 ---
 
 ## Obsidian URI Support
 
-Simple Ledger supports [Obsidian URIs](https://help.obsidian.md/Extending+Obsidian/Obsidian+URI) so you can register transactions from outside Obsidian — phone home screen buttons, browser bookmarks, scripts, or any other app that can open a URL.
+Register transactions from outside Obsidian via URL — home screen shortcuts, browser bookmarks, scripts, or any app that can open a URL.
 
 ### URI format
 
@@ -623,148 +455,69 @@ obsidian://simple-ledger?vault=VAULT_NAME&payee=DESCRIPTION&amount=AMOUNT&to=TO_
 
 | Parameter | Required | Description | Example |
 |-----------|----------|-------------|---------|
-| `vault` | Recommended | Your Obsidian vault name. Required if you have more than one vault. | `MisFinanzas` |
-| `payee` | Yes | Transaction description | `Supermercado` |
-| `amount` | Yes | Numeric amount — no currency symbol, no thousands separators | `85000` |
-| `to` | Yes | Destination account (full name including prefix) | `Gastos:Comida` |
-| `from` | Yes | Source account (full name including prefix) | `Activos:Banco` |
+| `vault` | Recommended | Your Obsidian vault name | `MyFinances` |
+| `payee` | Yes | Transaction description | `Supermarket` |
+| `amount` | Yes | Numeric amount — no symbol, no separators | `85000` |
+| `to` | Yes | Destination account (full name) | `Expenses:Food` |
+| `from` | Yes | Source account (full name) | `Assets:Bank` |
 | `date` | No | Date in `YYYY/MM/DD` format. Defaults to today. | `2026/03/22` |
-| `status` | No | `*` = confirmed, `!` = pending, omit = unmarked. Defaults to `*`. | `*` |
+| `status` | No | `*` confirmed, `!` pending. Defaults to `*`. | `*` |
 
-> **Finding your vault name:** In Obsidian, go to **Settings → About** and look at the vault name at the top, or check the folder name of your vault on disk. Spaces in the vault name must be encoded as `%20` (e.g. `vault=Mis%20Finanzas`).
-
-### URL encoding
-
-Account names use `:` as a separator (e.g. `Gastos:Comida`). Most tools handle this automatically, but if your environment requires strict encoding, replace `:` with `%3A` and spaces with `%20` or `+`.
-
-| Character | Encoded |
-|-----------|---------|
-| `:` | `%3A` (or leave as-is in most tools) |
-| space | `%20` or `+` |
-| `/` in dates | `%2F` (or leave as-is in most tools) |
+If any required parameter is missing, the plugin opens the transaction form so you can fill in the rest manually.
 
 ### Examples
 
-**Grocery expense paid in cash:**
 ```
-obsidian://simple-ledger?vault=MyVault&payee=Supermercado&amount=85000&to=Gastos:Comida&from=Activos:Efectivo
-```
-
-**Charge something to a credit card:**
-```
-obsidian://simple-ledger?vault=MyVault&payee=Netflix&amount=15000&to=Gastos:Entretenimiento&from=Pasivos:TarjetaCredito
+obsidian://simple-ledger?vault=MyVault&payee=Supermarket&amount=85&to=Expenses:Food&from=Assets:Bank
+obsidian://simple-ledger?vault=MyVault&payee=Netflix&amount=15&to=Expenses:Entertainment&from=Liabilities:CreditCard
+obsidian://simple-ledger?vault=MyVault&payee=Card+payment&amount=150&to=Liabilities:CreditCard&from=Assets:Bank
 ```
 
-**Pay the credit card:**
-```
-obsidian://simple-ledger?vault=MyVault&payee=Pago+tarjeta&amount=150000&to=Pasivos:TarjetaCredito&from=Activos:Banco
-```
+### iOS Shortcuts
 
-**Record salary income on a specific date:**
-```
-obsidian://simple-ledger?vault=MyVault&payee=Salario+Marzo&amount=1000000&to=Activos:Banco&from=Ingresos:Salario&date=2026/03/31
-```
+1. Open **Shortcuts** → **+** → Add action **Open URLs**
+2. Paste your URI in the URL field
+3. (Optional) Add an **Ask for Input** action before it to prompt for the amount each time
+4. Name it, tap **Done**, and add it to your home screen
 
-**Mark a transaction as pending:**
-```
-obsidian://simple-ledger?vault=MyVault&payee=Arriendo&amount=400000&to=Gastos:Hogar&from=Activos:Banco&status=!
-```
+### Android
 
-If any required parameter (`payee`, `amount`, `to`, `from`) is missing, the plugin opens the transaction form so you can fill in the rest manually.
+Use the **HTTP Shortcuts** app: create a **Browser Shortcut** with your URI and place it on your home screen.
 
----
+### Scripts
 
-### Setting up iOS Shortcuts
-
-iOS Shortcuts lets you create home screen buttons that record a transaction in one tap — ideal for coffee, transport, or any daily expense.
-
-**Create a simple one-tap expense button:**
-
-1. Open the **Shortcuts** app → tap **+** to create a new shortcut
-2. Tap **Add action** → search for **"Open URLs"** and select it
-3. Paste your URI in the URL field:
-   ```
-   obsidian://simple-ledger?vault=MyVault&payee=Cafe&amount=3000&to=Gastos:Comida&from=Activos:Efectivo
-   ```
-4. Tap the shortcut name at the top to rename it (e.g. "☕ Café")
-5. Tap **Done**
-6. Long-press the shortcut → **Add to Home Screen**
-
-Now tapping that icon on your home screen registers the transaction immediately and opens Obsidian to confirm it.
-
-**Create a shortcut that asks for the amount each time:**
-
-1. Create a new shortcut
-2. Add action **"Ask for Input"** → set type to **Number**, prompt to `Monto`
-3. Add action **"Open URLs"**
-4. In the URL field, tap where you want the amount and insert the **"Provided Input"** variable from the action list:
-   ```
-   obsidian://simple-ledger?vault=MyVault&payee=Gasto&amount=[Provided Input]&to=Gastos:Otros&from=Activos:Banco
-   ```
-5. Name it and add it to the Home Screen
-
-This way the shortcut asks you for the amount before opening Obsidian.
-
----
-
-### Setting up Android Shortcuts
-
-**Using the HTTP Shortcuts app (recommended):**
-
-1. Install [HTTP Shortcuts](https://play.google.com/store/apps/details?id=ch.rmy.android.http_shortcuts) from the Play Store
-2. Tap **+** → **Browser Shortcut**
-3. Set the URL to your URI:
-   ```
-   obsidian://simple-ledger?vault=MyVault&payee=Supermercado&amount=85000&to=Gastos:Comida&from=Activos:Banco
-   ```
-4. Give it a name and icon
-5. Long-press the shortcut in the app → **Place on Home Screen**
-
-**Using Tasker:**
-
-1. Create a new **Task**
-2. Add action **Misc → Browse URL**
-3. Set the URL to your `obsidian://simple-ledger?...` URI
-4. Create a **Task Shortcut** widget on the home screen pointing to that task
-
----
-
-### Browser bookmark (desktop)
-
-On desktop you can save URIs as browser bookmarks for quick logging from your browser.
-
-1. In your browser, create a new bookmark
-2. Set the **URL** to:
-   ```
-   obsidian://simple-ledger?vault=MyVault&payee=Almuerzo&amount=12000&to=Gastos:Comida&from=Activos:Banco
-   ```
-3. Give it a name and place it in your bookmarks bar
-
-Clicking it will switch to Obsidian and register the transaction.
-
----
-
-### Scripting and automation
-
-You can call the URI from any script. The exact method depends on your operating system:
-
-**macOS / Linux:**
 ```bash
-open "obsidian://simple-ledger?vault=MyVault&payee=Suscripcion&amount=9900&to=Gastos:Entretenimiento&from=Activos:Banco"
+# macOS / Linux
+open "obsidian://simple-ledger?vault=MyVault&payee=Coffee&amount=3&to=Expenses:Food&from=Assets:Cash"
+
+# Windows (PowerShell)
+Start-Process "obsidian://simple-ledger?vault=MyVault&payee=Coffee&amount=3&to=Expenses:Food&from=Assets:Cash"
 ```
 
-**Windows (PowerShell):**
-```powershell
-Start-Process "obsidian://simple-ledger?vault=MyVault&payee=Suscripcion&amount=9900&to=Gastos:Entretenimiento&from=Activos:Banco"
-```
+---
 
-**Windows (CMD):**
-```cmd
-start obsidian://simple-ledger?vault=MyVault^&payee=Suscripcion^&amount=9900^&to=Gastos:Entretenimiento^&from=Activos:Banco
-```
-> Note: In CMD, escape `&` with `^`.
+## Commands
 
-This makes it easy to trigger ledger entries from cron jobs, calendar reminders, or other automations.
+All commands are accessible from the command palette (`Ctrl+P`) and can be assigned keyboard shortcuts:
+
+| Command | Description |
+|---------|-------------|
+| New transaction | Open the add-transaction form |
+| New multi-posting transaction | Add a transaction with multiple account splits |
+| Open sidebar | Open the main sidebar |
+| Open dashboard | Open the full dashboard |
+| Open ledger file | Open the `.ledger` file for direct editing |
+| Manage accounts | Open the account manager |
+| Open recurring panel | Open the recurring transactions panel |
+| Open quick add panel | Open the quick-add panel |
+| Open accounts panel | Open the accounts panel |
+| Open budgets panel | Open the budgets panel |
+| New credit | Open the credit/loan wizard |
+| Filter: current month | Filter dashboard to current month |
+| Filter: current year | Filter dashboard to current year |
+| Filter: expenses only | Filter dashboard to expense accounts |
+| Filter: income only | Filter dashboard to income accounts |
+| Clear filters | Reset all dashboard filters |
 
 ---
 

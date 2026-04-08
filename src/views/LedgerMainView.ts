@@ -46,7 +46,7 @@ export class LedgerMainView extends ItemView {
 	private manageOpen: boolean;
 	private manageTab: 'expenses' | 'income' | 'assets' | 'liabilities';
 	private chartMode: 'cashflow' | 'pie';
-	private pieType: 'gastos' | 'ingresos';
+	private pieType: 'expenses' | 'income';
 	private pieLevel: 1 | 2;
 	private txPage: number;
 	private txSortOrder: 'desc' | 'asc';
@@ -63,7 +63,7 @@ export class LedgerMainView extends ItemView {
 		this.manageOpen = false;
 		this.manageTab = 'expenses';
 		this.chartMode = 'cashflow';
-		this.pieType = 'gastos';
+		this.pieType = 'expenses';
 		this.pieLevel = 1;
 		this.txPage = 0;
 		this.txSortOrder = 'desc';
@@ -340,19 +340,19 @@ export class LedgerMainView extends ItemView {
 		// Pie controls at bottom, centered (only in pie mode)
 		if (this.chartMode === 'pie') {
 			const pieControls = section.createDiv('sl-pie-controls-bottom');
-			for (const [key, icon, title] of [['gastos', 'trending-down', 'Gastos'], ['ingresos', 'trending-up', 'Ingresos']] as [string, string, string][]) {
+			for (const [key, icon, label] of [['expenses', 'trending-down', t('view_main_pie_gastos')], ['income', 'trending-up', t('view_main_pie_ingresos')]] as [string, string, string][]) {
 				const btn = pieControls.createEl('button', {
 					cls: 'sl-icon-btn' + (this.pieType === key ? ' sl-btn-active' : ''),
-					attr: { title },
+					attr: { title: label },
 				});
 				setIcon(btn, icon);
-				btn.addEventListener('click', () => { this.pieType = key as 'gastos' | 'ingresos'; this.render(); });
+				btn.addEventListener('click', () => { this.pieType = key as 'expenses' | 'income'; this.render(); });
 			}
 			pieControls.createSpan({ cls: 'sl-pie-controls-sep' });
-			for (const [n, icon, title] of [[1, 'list', 'Nivel 1'], [2, 'list-tree', 'Nivel 2']] as [number, string, string][]) {
+			for (const [n, icon, label] of [[1, 'list', t('view_main_pie_level1')], [2, 'list-tree', t('view_main_pie_level2')]] as [number, string, string][]) {
 				const btn = pieControls.createEl('button', {
 					cls: 'sl-icon-btn' + (this.pieLevel === n ? ' sl-btn-active' : ''),
-					attr: { title },
+					attr: { title: label },
 				});
 				setIcon(btn, icon);
 				btn.addEventListener('click', () => { this.pieLevel = n as 1 | 2; this.render(); });
@@ -367,7 +367,7 @@ export class LedgerMainView extends ItemView {
 	private _renderPieChart(section: HTMLElement, filteredTxs: Transaction[]): void {
 		const settings = this.plugin.settings;
 		const balances = LedgerParser.computeBalances(filteredTxs);
-		const prefix = this.pieType === 'gastos' ? ACCT.expenses : ACCT.income;
+		const prefix = this.pieType === 'expenses' ? ACCT.expenses : ACCT.income;
 		const pieData = computePieData(balances, prefix, this.pieLevel);
 
 		if (pieData.length === 0) {
