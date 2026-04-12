@@ -378,6 +378,8 @@ const en: Record<LangKeys, string> = {
 	view_accounts_tab_income: 'Income',
 	view_accounts_tab_expenses: 'Expenses',
 	view_accounts_empty: 'No accounts in this category',
+	view_accounts_parent_aggregated: 'sum of {n} sub-accounts',
+	view_accounts_parent_mixed: '{n} sub-accounts',
 	view_accounts_this_month: 'this month',
 	view_accounts_tx_count_one: '1 transaction',
 	view_accounts_tx_count: '{n} transactions',

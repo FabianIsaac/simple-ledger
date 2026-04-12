@@ -3154,6 +3154,23 @@
   text-overflow: ellipsis;
 }
 
+.sl-accounts-parent-tag {
+  font-size: 0.7em;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-left: 4px;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.sl-accounts-card-parent {
+  border-style: dashed;
+  opacity: 0.9;
+}
+
 /* Balance */
 .sl-accounts-balance {
   font-size: 1.5em;

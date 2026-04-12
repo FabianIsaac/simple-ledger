@@ -148,6 +148,13 @@ export class AccountsView extends ItemView {
 
 		for (const acct of accounts) {
 			const balance = this._acctBalance(balances, acct);
+
+			// Detect if this account is a parent of other accounts in the same list
+			const children = accounts.filter(a => a.startsWith(acct + ':'));
+			const isParent = children.length > 0;
+			// Direct txs: postings pointing exactly to this account (not sub-accounts)
+			const hasDirectTxs = txs.some(tx => tx.postings.some(p => p.account === acct));
+
 			const acctTxs = txs.filter(tx =>
 				tx.postings.some(p => p.account === acct || p.account.startsWith(acct + ':'))
 			);
@@ -165,7 +172,8 @@ export class AccountsView extends ItemView {
 			}
 
 			const isSelected = this.selectedAccount === acct;
-			const card = list.createDiv(`sl-accounts-card${isSelected ? ' sl-accounts-card-selected' : ''}`);
+			const cardCls = `sl-accounts-card${isSelected ? ' sl-accounts-card-selected' : ''}${isParent ? ' sl-accounts-card-parent' : ''}`;
+			const card = list.createDiv(cardCls);
 
 			// ── Card top ──
 			const cardTop = card.createDiv('sl-accounts-card-top');
@@ -178,6 +186,14 @@ export class AccountsView extends ItemView {
 			const nameRow = cardLeft.createDiv('sl-accounts-name-row');
 			nameRow.createSpan({ text: catPrefix + ':', cls: `sl-accounts-cat-label sl-acct-cat-${this.activeTab}` });
 			nameRow.createSpan({ text: subName, cls: 'sl-accounts-name' });
+			if (isParent) {
+				const childNames = children.map(c => c.split(':').pop() ?? c).join(', ');
+				const tagLabel = !hasDirectTxs
+					? t('view_accounts_parent_aggregated', { n: children.length })
+					: t('view_accounts_parent_mixed', { n: children.length });
+				const tag = nameRow.createSpan({ cls: 'sl-accounts-parent-tag', attr: { title: childNames } });
+				tag.createSpan({ text: '⊕ ' + tagLabel });
+			}
 
 			// Balance
 			const displayBalance = (this.activeTab === 'income' || this.activeTab === 'liabilities')

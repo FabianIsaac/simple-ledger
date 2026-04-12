@@ -377,6 +377,8 @@ const es = {
 	view_accounts_tab_income: 'Ingresos',
 	view_accounts_tab_expenses: 'Gastos',
 	view_accounts_empty: 'Sin cuentas en esta categoría',
+	view_accounts_parent_aggregated: 'suma de {n} sub-cuentas',
+	view_accounts_parent_mixed: '{n} sub-cuentas',
 	view_accounts_this_month: 'este mes',
 	view_accounts_tx_count_one: '1 transaccion',
 	view_accounts_tx_count: '{n} transacciones',
